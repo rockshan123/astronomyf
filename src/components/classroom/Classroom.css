@@ -103,3 +103,39 @@
   .classroom-heading{font-size:12px}
   .classroom-kicker{letter-spacing:.03em}
 }
+
+
+/* Classroom V2 · dark hemispherical teaching stage with bright glass controls */
+.classroom-v2{background:#060d1c}
+.classroom-v2 .classroom-stage{background:radial-gradient(ellipse 45% 45% at 52% 48%,#111f39 0%,#080f20 62%,#030714 100%)}
+.classroom-v2 .classroom-glass{background:rgba(249,251,255,.82);border:1px solid rgba(255,255,255,.77);box-shadow:0 11px 38px rgba(0,0,0,.23),inset 0 1px 0 rgba(255,255,255,.93);-webkit-backdrop-filter:blur(26px) saturate(180%);backdrop-filter:blur(26px) saturate(180%)}
+.classroom-v2 .classroom-toolstrip{grid-template-columns:repeat(5,minmax(0,1fr));gap:3px}
+.classroom-v2 .classroom-tool{font-size:9px;min-height:63px;gap:6px}
+.classroom-v2 .classroom-tool.is-active{background:linear-gradient(145deg,#fff,#eaf4ff);border-color:#c3d9f4}
+.classroom-v2 .classroom-space-label{text-shadow:0 2px 6px #020712,0 1px 4px #000}
+.classroom-v2 .classroom-space-label small{color:#cee1f5;opacity:.9}
+.classroom-v2 .classroom-ink-layer path{filter:drop-shadow(0 1px 2px rgba(0,0,0,.18))}
+.classroom-shape-toggle{padding-top:13px}
+.classroom-shape-button{width:100%;padding:10px;display:flex;gap:9px;align-items:center;border-radius:13px;border:1px solid #dae6f5;color:#71859e;background:rgba(249,251,255,.75);text-align:left}
+.classroom-shape-button.on{border-color:#a5cdef;background:linear-gradient(115deg,#e6f3ff,#fff);color:#2b6fad}
+.classroom-shape-button>span:nth-child(2){min-width:0;flex:1;display:flex;flex-direction:column;gap:2px}
+.classroom-shape-button strong{font-size:12px;font-weight:700}
+.classroom-shape-button small{color:#92a3b7;line-height:1.4;font-size:9px}
+.classroom-switch{width:31px;height:18px;border-radius:20px;background:#cbd8e7;position:relative;flex:none}
+.classroom-switch::after{content:"";position:absolute;top:3px;left:3px;width:12px;height:12px;border-radius:100%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.13);transition:transform .18s}
+.classroom-switch.on{background:#4b98ef}
+.classroom-switch.on::after{transform:translateX(13px)}
+.classroom-view-section{padding-top:10px}
+.classroom-direction-buttons{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;margin-top:8px}
+.classroom-direction-buttons button{min-width:0;font-size:9px;font-weight:700;color:#437098;border:1px solid #d2e2f1;background:rgba(255,255,255,.82);border-radius:8px;min-height:31px}
+.classroom-direction-buttons button:hover{background:#e7f3ff;color:#1669b6;border-color:#a8d2f2}
+.classroom-v2 .classroom-source-note{color:#73839a}
+.classroom-v2 .classroom-status{background:rgba(247,250,255,.9);font-weight:500}
+.classroom-v2 .classroom-layers,.classroom-v2 .classroom-tools{top:93px}
+.classroom-v2 .classroom-tools{scrollbar-width:thin}
+.classroom-v2 .classroom-circle-row.active{background:rgba(223,238,255,.8)}
+@media(max-width:760px){
+ .classroom-v2 .classroom-layers,.classroom-v2 .classroom-tools{top:auto}
+ .classroom-v2 .classroom-tool{min-height:55px}
+ .classroom-v2 .classroom-status{bottom:8px}
+}
