@@ -109,6 +109,8 @@ function Sidebar() {
   const st = useSky();
   const [q, setQ] = useState("");
   const [showToggles, setShowToggles] = useState(false);
+  const [closedGroups, setClosedGroups] = useState<Set<Group>>(() => new Set());
+  const flipGroup = (group: Group) => setClosedGroups((previous) => { const next = new Set(previous); next.has(group) ? next.delete(group) : next.add(group); return next; });
   const ql = q.trim().toLowerCase();
   const strip = (s: string) => s.replace(/[\u064B-\u0652\u0670]/g, "");
   const match = (l: (typeof LAYERS)[number]) => !ql || l.en.toLowerCase().includes(ql) || strip(l.ar).includes(strip(q.trim())) || l.ml.includes(q.trim()) || String(l.num) === ql;
@@ -144,14 +146,18 @@ function Sidebar() {
           return (
             <section key={g} className="grp">
               <div className="grp-head">
-                <span dir="rtl" className="ar">{GROUPS[g].ar}</span>
-                <span className="muted">{GROUPS[g].en} · {on}/{items.length}</span>
+                <button className="grp-collapse" type="button" aria-expanded={!closedGroups.has(g)}
+                  onClick={() => flipGroup(g)}>
+                  <span className="grp-chevron">{closedGroups.has(g) ? "▸" : "▾"}</span>
+                  <span dir="rtl" className="ar">{GROUPS[g].ar}</span>
+                  <span className="muted">{GROUPS[g].en} · {on}/{items.length}</span>
+                </button>
                 <span className="grp-actions">
                   <button onClick={() => st.setMany(items.map((i) => i.id), true)}>all</button>
                   <button onClick={() => st.setMany(items.map((i) => i.id), false)}>none</button>
                 </span>
               </div>
-              {items.map((l) => (
+              {!closedGroups.has(g) && items.map((l) => (
                 <div key={l.id} className={`row ${st.selected === l.id ? "row-sel" : ""}`}
                   onMouseEnter={() => st.set({ hovered: l.id })} onMouseLeave={() => st.set({ hovered: null })}>
                   <input type="checkbox" checked={!!st.visible[l.id]} onChange={() => st.toggleLayer(l.id)} aria-label={`Show ${l.en}`} />
@@ -169,6 +175,14 @@ function Sidebar() {
           );
         })}
         <section className="grp">
+          <div className="view-options">
+            <label className="xray-toggle" title="Reveal faint, hidden far-side arcs">
+              <input type="checkbox" checked={st.xray} onChange={(e) => st.set({ xray: e.target.checked })} />
+              <span className="xray-indicator" />
+              <span>X-Ray hemisphere</span>
+              <small>{st.xray ? "On" : "Off"}</small>
+            </label>
+          </div>
           <button className="grp-head toggle-head" onClick={() => setShowToggles(!showToggles)}>
             <span>Scene objects</span><span className="muted">{showToggles ? "hide" : "show"}</span>
           </button>
@@ -303,7 +317,7 @@ function BottomBar() {
       </div>
       <div className="bgrp">
         <button className={`sky-btn ${st.view === "inside" ? "on" : ""}`} onClick={() => st.set({ view: st.view === "inside" ? "outside" : "inside" })}><Footprints size={14} />{st.view === "inside" ? "Inside" : "Outside"}</button>
-        {([["Top", [0, 1, 0.001]], ["Front", [0, 0.1, 1]], ["Side", [1, 0.1, 0]], ["Bottom", [0, -1, 0.001]]] as const).map(([n, dir]) => (
+        {([["N", [0, 0.12, -1]], ["S", [0, 0.12, 1]], ["E", [1, 0.12, 0]], ["W", [-1, 0.12, 0]], ["Top", [0, 1, 0.001]], ["Bottom", [0, -1, 0.001]]] as const).map(([n, dir]) => (
           <button key={n} className="sky-btn" onClick={() => st.cam("view", [...dir] as [number, number, number])}>{n}</button>
         ))}
         <button className="sky-btn" onClick={() => st.cam("reset")} aria-label="Reset camera"><RotateCcw size={14} /></button>
@@ -329,10 +343,10 @@ function Help({ onClose }: { onClose: () => void }) {
           <li>The celestial north pole sits φ° above the northern horizon (latitude φ).</li>
           <li>The ecliptic is tilted to the equator by the epoch's obliquity (≈23.44°). The Sun marker moves on it with the date — this is its <i>apparent</i> annual path, not a physical orbit around Earth.</li>
           <li>The camera orbit is decoration only; astronomy changes come from the date/time sliders.</li>
-          <li>Solid lines are in front of the sphere; faint dashes are on the hidden hemisphere.</li>
+          <li>Hidden hemisphere arcs and labels are occluded in standard outside view. Enable X-Ray hemisphere in the sidebar for faint back-side arcs.</li>
           <li>The human, Sun and Moon sizes are schematic exaggerations. Positions are computed with astronomy-engine.</li>
           <li>Terms marked <em>under review</em> await verification against the primary Arabic text.</li>
-          <li>Drag to orbit, right-drag / two fingers to pan, scroll / pinch to zoom.</li>
+          <li>Drag freely in all directions to orbit (including north-to-south), scroll or pinch to zoom. Use the N / S / E / W presets to orient the camera. Panning is disabled to keep the sphere centered.</li>
         </ul>
       </div>
     </div>
