@@ -23,7 +23,7 @@ interface State {
   simTime: number; timePlaying: boolean; timeMult: number;
   autoOrbit: boolean; orbitSpeed: number;
   quality: Quality; lang: Lang; view: "outside" | "inside";
-  sidebarOpen: boolean; touring: boolean;
+  sidebarOpen: boolean; touring: boolean; xray: boolean;
   camCmd: { kind: "reset" | "focus" | "view"; dir?: [number, number, number] | undefined; n: number } | null;
   set: (p: Partial<State>) => void;
   toggleLayer: (id: string) => void;
@@ -45,7 +45,7 @@ export const useSky = create<State>()(
       simTime: Date.now(), timePlaying: false, timeMult: 1,
       autoOrbit: true, orbitSpeed: 0.4,
       quality: "medium", lang: "en", view: "outside",
-      sidebarOpen: true, touring: false, camCmd: null,
+      sidebarOpen: true, touring: false, xray: false, camCmd: null,
       set: (p) => set(p),
       toggleLayer: (id) => {
         const visible = { ...get().visible, [id]: !get().visible[id] };
@@ -61,7 +61,7 @@ export const useSky = create<State>()(
     }),
     {
       name: "tashrihul-aflak-3d",
-      partialize: (s) => ({ visible: s.visible, custom: s.custom, opacity: s.opacity, toggles: s.toggles, lat: s.lat, lon: s.lon, autoOrbit: s.autoOrbit, orbitSpeed: s.orbitSpeed, quality: s.quality, lang: s.lang }),
+      partialize: (s) => ({ visible: s.visible, custom: s.custom, opacity: s.opacity, toggles: s.toggles, lat: s.lat, lon: s.lon, autoOrbit: s.autoOrbit, orbitSpeed: s.orbitSpeed, quality: s.quality, lang: s.lang, xray: s.xray }),
     },
   ),
 );
