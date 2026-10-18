@@ -4,7 +4,7 @@ import { Html, Line, OrbitControls } from "@react-three/drei";
 import { Link } from "@tanstack/react-router";
 import * as THREE from "three";
 import type { OrbitControls as OrbitImpl } from "three-stdlib";
-import { ArrowLeft, Check, Compass, Eraser, Maximize2, MousePointer2, Palette, PenLine, RotateCcw, Ruler, Slash, Undo2, X, Shapes } from "lucide-react";
+import { ArrowLeft, Check, Compass, Eraser, Eye, EyeOff, Maximize2, MousePointer2, Palette, PenLine, RotateCcw, Ruler, Slash, Undo2, X, Shapes } from "lucide-react";
 import { LAYERS } from "@/data/layers";
 import { buildLayer } from "@/lib/astronomy/layerGeometry";
 import { computeSky } from "@/lib/astronomy/sky";
@@ -16,10 +16,11 @@ type XY = [number,number];
 type Tool = "orbit" | "pen" | "line" | "ruler" | "eraser";
 type Place = "inside" | "outside";
 type View = "outside" | "inside";
-type Mark = {id:string;points:Vec[];color:string;width:number;surface:boolean;inside:boolean;measure?:string};
+type Mark = {id:string;points:Vec[];color:string;width:number;surface:boolean;inside:boolean;measure?:string;anchorA?:Vec;anchorB?:Vec;kind?:"pen"|"line"|"ruler"};
 type Stroke = {id:string;points:XY[];color:string;width:number};
 type Snapshot = {marks:Mark[];strokes:Stroke[]};
-type Gesture = {pointer:number;kind:"screen"|"erase";x:number;y:number;dragged:boolean};
+type Gesture = {pointer:number;kind:"screen"|"erase"|"free-line"|"edit";x:number;y:number;dragged:boolean};
+type Edit = {id:string;endpoint:0|1};
 type CameraCmd = {number:number;dir:Vec};
 const SEASONS = [
   {longitude:0,ar:"الاعتدال الربيعي",en:"Vernal Equinox"},
@@ -41,8 +42,11 @@ const spherePointDistance=(a:Vec,b:Vec)=>angle(a,b);
 // Lines are densely sampled, so erasing a portion can truly split the 3D path.
 // Surface strokes follow a great-circle arc above the rendered globe.
 // Straight inside/outside strokes remain straight chords, not curved arcs.
-function shapePath(a:Vec,b:Vec):Vec[] {
-  return slerpArc(v(a),v(b),Math.max(32,Math.ceil(angle(a,b)*95))).map(p=>t(p.multiplyScalar(1.022)));
+function shapePath(a:Vec,b:Vec,inside=false):Vec[] {
+  // A painted curve follows the spherical skin, never an elevated chord.
+  const radius=inside?0.988:1.012;
+  return slerpArc(v(a),v(b),Math.max(48,Math.ceil(angle(a,b)*125)))
+    .map(p=>t(p.multiplyScalar(radius)));
 }
 function straightPath(a:Vec,b:Vec,place:Place):Vec[] {
   const A=v(a),B=v(b),theta=A.angleTo(B);
@@ -51,165 +55,199 @@ function straightPath(a:Vec,b:Vec,place:Place):Vec[] {
   return Array.from({length:Math.max(45,Math.ceil(theta*90))},(_,i)=>
     t(p.clone().lerp(q,i/(Math.max(45,Math.ceil(theta*90))-1))));
 }
-function split3D(mark:Mark,location:Vec,radius:number):Mark[] {
-  if(mark.points.every(p=>spherePointDistance(p,location)>=radius))return [mark];
-  let part:Vec[]=[];
-  const result:Mark[]=[];
-  const finish=()=>{if(part.length>1)result.push({...mark,id:mark.id+"-cut-"+result.length,points:part,measure:undefined});part=[];};
-  for(const p of mark.points) {
-    if(spherePointDistance(p,location)<radius)finish();
-    else part.push(p);
+function screenDistance(p:XY,a:XY,b:XY) {
+  const dx=b[0]-a[0],dy=b[1]-a[1],length=dx*dx+dy*dy;
+  const f=length>0?Math.max(0,Math.min(1,((p[0]-a[0])*dx+(p[1]-a[1])*dy)/length)):0;
+  return Math.hypot(p[0]-a[0]-f*dx,p[1]-a[1]-f*dy);
+}
+function projectPoint(point:Vec,camera:THREE.Camera,width:number,height:number):XY|null {
+  const p=new THREE.Vector3(...point).project(camera);
+  if(!Number.isFinite(p.x)||!Number.isFinite(p.y)||p.z<-1||p.z>1)return null;
+  return [(p.x+1)*0.5*width,(1-p.y)*0.5*height];
+}
+function visiblePoint(point:Vec,camera:THREE.Camera,view:View,shell:boolean):boolean {
+  if(!shell||view==="inside")return true;
+  const dest=new THREE.Vector3(...point),delta=dest.clone().sub(camera.position);
+  const length=delta.length();
+  if(length<0.001)return false;
+  const ray=new THREE.Ray(camera.position,delta.multiplyScalar(1/length));
+  const hit=ray.intersectSphere(new THREE.Sphere(new THREE.Vector3(),0.997),new THREE.Vector3());
+  return !hit||camera.position.distanceTo(hit)>=length-0.026;
+}
+function projectedMarks(mark:Mark,camera:THREE.Camera,width:number,height:number,view:View,shell:boolean){
+  return mark.points.map(p=>visiblePoint(p,camera,view,shell)?projectPoint(p,camera,width,height):null);
+}
+function markHit(mark:Mark,p:XY,camera:THREE.Camera,w:number,h:number,view:View,shell:boolean){
+  const samples=projectedMarks(mark,camera,w,h,view,shell);
+  let distance=Infinity;
+  for(let i=1;i<samples.length;i++){
+    const a=samples[i-1],b=samples[i];
+    if(a&&b)distance=Math.min(distance,screenDistance(p,a,b));
   }
-  finish();
-  return result;
+  return distance;
 }
-function splitInk(stroke:Stroke,location:XY,radius:number):Stroke[] {
-  if(stroke.points.every(p=>dist2(p,location)>=radius))return [stroke];
-  const result:Stroke[]=[];let part:XY[]=[];
-  const finish=()=>{if(part.length>1)result.push({...stroke,id:stroke.id+"-cut-"+result.length,points:part});part=[];};
-  for(const p of stroke.points){if(dist2(p,location)<radius)finish();else part.push(p);}
-  finish();return result;
-}
-function nearestMark(marks:Mark[],position:Vec) {
-  let best:string|null=null,min=0.075;
-  for(const m of marks)for(const p of m.points){
-    const d=spherePointDistance(position,p);
-    if(d<min){min=d;best=m.id;}
+function inkHit(stroke:Stroke,p:XY,w:number,h:number) {
+  let best=Infinity;
+  for(let i=1;i<stroke.points.length;i++){
+    const a=stroke.points[i-1],b=stroke.points[i];
+    best=Math.min(best,screenDistance(p,[a[0]*w,a[1]*h],[b[0]*w,b[1]*h]));
   }
   return best;
 }
-function nearestStroke(strokes:Stroke[],position:XY) {
-  let best:string|null=null,min=0.024;
-  for(const m of strokes)for(const p of m.points){
-    const d=dist2(position,p);
-    if(d<min){min=d;best=m.id;}
+function cutMark(mark:Mark,p:XY,camera:THREE.Camera,w:number,h:number,view:View,shell:boolean,radius=15):Mark[]{
+  const pts=projectedMarks(mark,camera,w,h,view,shell);
+  if(!pts.some(q=>q&&Math.hypot(q[0]-p[0],q[1]-p[1])<radius))return [mark];
+  let buffer:Vec[]=[];const pieces:Mark[]=[];
+  const flush=()=>{if(buffer.length>=2)pieces.push({...mark,id:mark.id+"-cut-"+pieces.length,points:buffer,
+    anchorA:undefined,anchorB:undefined,measure:undefined});buffer=[];};
+  for(let i=0;i<mark.points.length;i++){
+    const q=pts[i];if(q&&Math.hypot(q[0]-p[0],q[1]-p[1])<radius)flush();
+    else buffer.push(mark.points[i]!);
   }
-  return best;
+  flush();return pieces;
+}
+function cutInk(stroke:Stroke,p:XY,w:number,h:number,radius=15):Stroke[]{
+  const near=stroke.points.some(q=>Math.hypot(q[0]*w-p[0],q[1]*h-p[1])<radius);
+  if(!near)return [stroke];
+  let buffer:XY[]=[];const pieces:Stroke[]=[];
+  const flush=()=>{if(buffer.length>=2)pieces.push({...stroke,id:stroke.id+"-cut-"+pieces.length,points:buffer});buffer=[];};
+  for(const q of stroke.points){if(Math.hypot(q[0]*w-p[0],q[1]*h-p[1])<radius)flush();else buffer.push(q);}
+  flush();return pieces;
+}
+function hitSphere(screen:XY,camera:THREE.Camera,w:number,h:number):Vec|null {
+  const ray=new THREE.Raycaster();
+  ray.setFromCamera(new THREE.Vector2(screen[0]/w*2-1,1-screen[1]/h*2),camera);
+  const at=ray.ray.intersectSphere(new THREE.Sphere(new THREE.Vector3(),1),new THREE.Vector3());
+  return at?t(at.normalize()):null;
 }
 function inkPath(points:XY[]){
   return points.map((p,i)=>(i?"L":"M")+(p[0]*1000).toFixed(2)+" "+(p[1]*1000).toFixed(2)).join(" ");
 }
 
-function Tag({p,ar,en,color,view}:{p:THREE.Vector3;ar:string;en?:string;color?:string;view:View}) {
-  const ref=useRef<HTMLDivElement>(null);
+function Tag({p,ar,en,color,view,showSphere}:{p:THREE.Vector3;ar:string;en?:string;color?:string;view:View;showSphere:boolean}) {
+  const label=useRef<HTMLDivElement>(null);
   const delta=useMemo(()=>new THREE.Vector3(),[]);
-  // Hide far-side HTML labels when viewing the outside of the globe.
   useFrame(({camera})=>{
-    if(!ref.current)return;
-    if(view==="inside"){ref.current.style.visibility="visible";return;}
+    if(!label.current)return;
+    if(!showSphere||view==="inside"){label.current.style.visibility="visible";return;}
     delta.copy(p).sub(camera.position);
-    const a=delta.lengthSq(),b=2*camera.position.dot(delta),c=camera.position.lengthSq()-1;
+    const a=delta.lengthSq(),b=2*camera.position.dot(delta),c=camera.position.lengthSq()-0.997*0.997;
     const discriminant=b*b-4*a*c;
     const near=discriminant>0?(-b-Math.sqrt(discriminant))/(2*a):2;
-    ref.current.style.visibility=c>0 && near>0.0001 && near<0.999?"hidden":"visible";
+    label.current.style.visibility=c>0&&near>0.0001&&near<0.999?"hidden":"visible";
   });
   return <Html position={p} center style={{pointerEvents:"none"}} zIndexRange={[4,0]}>
-    <div ref={ref} className="classroom-space-label" style={{color}}><strong dir="rtl">{ar}</strong>{en&&<small>{en}</small>}</div>
+    <div ref={label} className="classroom-space-label" style={{color}}>
+      <strong dir="rtl">{ar}</strong>{en&&<small>{en}</small>}
+    </div>
   </Html>;
 }
-function ClassroomCamera({view,cmd,tool}:{view:View;cmd:CameraCmd;tool:Tool}){
+function ClassroomCamera({view,cmd,enabled}:{view:View;cmd:CameraCmd;enabled:boolean}){
   const {camera}=useThree();
   const controls=useRef<OrbitImpl>(null);
   useEffect(()=>{
     const d=v(cmd.dir);
-    const dist=view==="inside"?-0.055:3.25;
-    camera.position.copy(d.multiplyScalar(dist));
+    camera.position.copy(d.multiplyScalar(view==="inside"?-0.09:3.25));
     const perspective=camera as THREE.PerspectiveCamera;
-    perspective.fov=view==="inside"?78:45;
+    perspective.fov=view==="inside"?75:45;
     perspective.near=0.002;
     perspective.updateProjectionMatrix();
     controls.current?.target.set(0,0,0);
     controls.current?.update();
   },[view,cmd,camera]);
-  return <OrbitControls ref={controls as never} makeDefault enabled={tool!=="eraser"} enablePan={false}
-    enableDamping dampingFactor={0.08} rotateSpeed={0.8} zoomSpeed={0.85}
+  return <OrbitControls ref={controls as never} makeDefault enabled={enabled} enablePan={false}
+    enableDamping dampingFactor={0.07} rotateSpeed={0.83} zoomSpeed={0.85}
     minPolarAngle={0.0001} maxPolarAngle={Math.PI-0.0001}
     minAzimuthAngle={-Infinity} maxAzimuthAngle={Infinity}
-    minDistance={view==="inside"?0.025:1.45}
-    maxDistance={view==="inside"?0.14:9}/>;
+    minDistance={view==="inside"?0.012:1.3}
+    maxDistance={view==="inside"?0.92:11}/>;
 }
-function MarkLine({mark}:{mark:Mark}){
+function MarkLine({mark,view,showSphere,edit,onBeginEdit}:{mark:Mark;view:View;showSphere:boolean;edit:Edit|null;onBeginEdit:(id:string,endpoint:0|1)=>void}){
   if(mark.points.length<2)return null;
-  const middle=mark.points[Math.floor(mark.points.length/2)]!;
+  const midpoint=mark.points[Math.floor(mark.points.length/2)]!;
   return <group>
     <Line points={mark.points.map(p=>new THREE.Vector3(...p))}
       color={mark.color} lineWidth={mark.width+0.7}
-      transparent opacity={mark.inside?0.9:1}
-      dashed={mark.inside&&!mark.surface} dashSize={0.029} gapSize={0.014}
-      depthTest={mark.surface} depthWrite={false} raycast={()=>null}/>
-    {mark.measure&&<Html position={new THREE.Vector3(...middle)} center style={{pointerEvents:"none"}}>
-      <span className="classroom-measure-label">{mark.measure}</span></Html>}
+      opacity={1} transparent depthTest={mark.surface&&showSphere&&view==="outside"}
+      depthWrite={false} raycast={()=>null}/>
+    {mark.measure&&<Html position={new THREE.Vector3(...midpoint)} center style={{pointerEvents:"none"}}>
+      <span className="classroom-measure-label">{mark.measure}</span>
+    </Html>}
+    {mark.anchorA&&mark.anchorB&&([mark.anchorA,mark.anchorB] as const).map((anchor,index)=>{
+      const active=edit?.id===mark.id&&edit.endpoint===index;
+      const edge=mark.points[index===0?0:mark.points.length-1]!;
+      const position=mark.surface?v(anchor).multiplyScalar(mark.inside?0.982:1.027):new THREE.Vector3(...edge);
+      return <mesh key={index} position={position}
+        onPointerDown={e=>e.stopPropagation()}
+        onPointerUp={e=>e.stopPropagation()}
+        onDoubleClick={e=>{e.stopPropagation();onBeginEdit(mark.id,index as 0|1);}}>
+        <sphereGeometry args={[active?0.038:0.026,16,16]}/>
+        <meshBasicMaterial color={active?"#fff568":mark.color} transparent opacity={active?1:0.94} depthTest={false}/>
+      </mesh>;
+    })}
   </group>;
 }
-function Sphere({visible,zenith,nadir,directions,seasons,marks,pending,tool,color,view,cmd,onPoint,onErase,onEraseBegin}:{
+function Sphere({visible,zenith,nadir,directions,seasons,marks,pending,tool,color,view,cmd,showSphere,edit,onPoint,onBeginEdit}:{
  visible:string[];zenith:boolean;nadir:boolean;directions:boolean;seasons:number[];
- marks:Mark[];pending:Vec|null;tool:Tool;color:string;view:View;cmd:CameraCmd;
- onPoint:(p:Vec)=>void;onErase:(p:Vec,drag:boolean)=>void;onEraseBegin:()=>void;
+ marks:Mark[];pending:Vec|null;tool:Tool;color:string;view:View;cmd:CameraCmd;showSphere:boolean;
+ edit:Edit|null;onPoint:(p:Vec)=>void;onBeginEdit:(id:string,endpoint:0|1)=>void;
 }){
   const sky=useMemo(()=>computeSky(SKY_DATE,0,75.8),[]);
   const great=useMemo(()=>GREAT.map(layer=>{
     const geom=buildLayer(layer.id,sky);
+    // Circle 9 remains a teaching schematic pending textual verification.
     const lines=geom.lines.length?geom.lines:layer.num===9?[greatCircle(planeNormal(sky.K,V(0,1,0)))]:[];
     return {layer,lines};
   }),[sky]);
-  const pointer=useRef<{start:XY;last:XY;erased:boolean}|null>(null);
+  const downAt=useRef<XY|null>(null);
   const down=(e:ThreeEvent<PointerEvent>)=>{
-    if(tool==="orbit")return;
-    pointer.current={start:[e.clientX,e.clientY],last:[e.clientX,e.clientY],erased:false};
-    if(tool==="eraser")onEraseBegin();
-  };
-  const move=(e:ThreeEvent<PointerEvent>)=>{
-    if(tool!=="eraser"||!pointer.current)return;
-    const xy:XY=[e.clientX,e.clientY];
-    if(dist2(xy,pointer.current.start)>7){
-      pointer.current.erased=true;
-      onErase(t(e.point.clone().normalize()),true);
-    }
-    pointer.current.last=xy;
+    if(tool==="eraser")return;
+    downAt.current=[e.clientX,e.clientY];
   };
   const up=(e:ThreeEvent<PointerEvent>)=>{
-    if(!pointer.current)return;
-    const was=pointer.current;
-    pointer.current=null;
-    const p=t(e.point.clone().normalize());
-    if(tool==="eraser"){if(!was.erased)onErase(p,false);return;}
-    if(dist2(was.start,[e.clientX,e.clientY])<7)onPoint(p);
-    // Gestures beyond 7px are handed to OrbitControls, not drawing.
+    if(!downAt.current)return;
+    const start=downAt.current;downAt.current=null;
+    if(tool==="orbit"||tool==="eraser")return;
+    if(dist2(start,[e.clientX,e.clientY])<7)onPoint(t(e.point.clone().normalize()));
+    // Dragging the sphere always rotates the camera; it never lays ink.
   };
   return <>
     <ambientLight intensity={0.9}/>
-    <ClassroomCamera view={view} cmd={cmd} tool={tool}/>
-    {view==="outside"&&<mesh renderOrder={-2}>
-      <sphereGeometry args={[0.997,72,56]}/><meshBasicMaterial colorWrite={false}/>
+    <ClassroomCamera view={view} cmd={cmd} enabled={tool!=="eraser"&&!edit}/>
+    {showSphere&&view==="outside"&&<mesh renderOrder={-1} raycast={()=>null}>
+      <sphereGeometry args={[0.997,72,56]}/><meshBasicMaterial colorWrite={false} depthWrite/>
     </mesh>}
-    <mesh onPointerDown={down} onPointerMove={move} onPointerUp={up}>
+    {/* Invisible raycast sphere remains usable when the shell is hidden. */}
+    <mesh onPointerDown={down} onPointerUp={up}>
       <sphereGeometry args={[1,96,72]}/>
-      <meshBasicMaterial side={THREE.DoubleSide} color="#a9c9ef" transparent
-        opacity={0.10} depthWrite={false}/>
+      <meshBasicMaterial side={THREE.DoubleSide} colorWrite={false} depthWrite={false}/>
     </mesh>
-    <mesh scale={1.001}><sphereGeometry args={[1,32,24]}/>
-      <meshBasicMaterial side={THREE.DoubleSide} color="#80a7cf" wireframe
-        transparent opacity={0.085} depthWrite={false}/></mesh>
+    {showSphere&&<>
+      <mesh raycast={()=>null}><sphereGeometry args={[1,72,56]}/>
+        <meshBasicMaterial side={THREE.DoubleSide} color="#9ec4ef" transparent opacity={0.12} depthWrite={false}/></mesh>
+      <mesh scale={1.001} raycast={()=>null}><sphereGeometry args={[1,32,24]}/>
+        <meshBasicMaterial side={THREE.DoubleSide} color="#80a7cf" wireframe transparent opacity={0.07} depthWrite={false}/></mesh>
+    </>}
     {great.filter(({layer})=>visible.includes(layer.id)).map(({layer,lines})=><group key={layer.id}>
       {lines.map((pts,i)=><Line key={i} points={pts.map(p=>p.clone().multiplyScalar(1.008))}
         color={layer.color} lineWidth={layer.num<=2?3.2:2.2}
-        transparent opacity={0.98} depthTest depthWrite={false} raycast={()=>null}/>)}
+        transparent opacity={0.98} depthTest={showSphere&&view==="outside"} depthWrite={false} raycast={()=>null}/>)}
     </group>)}
     {directions&&([
       [V(0,0,-1.16),"N","North"],[V(0,0,1.16),"S","South"],
       [V(1.16,0,0),"E","East"],[V(-1.16,0,0),"W","West"]
-    ] as const).map(([p,ar,en])=><Tag key={ar} p={p} ar={ar} en={en} view={view} color="#b8ddff"/>)}
-    {zenith&&<Tag p={V(0,1.18,0)} ar="سَمْتُ الرَّأْسِ" en="Zenith" color="#cfe8ff" view={view}/>}
-    {nadir&&<Tag p={V(0,-1.18,0)} ar="سَمْتُ الْقَدَمِ" en="Nadir" color="#cfe8ff" view={view}/>}
+    ] as const).map(([p,ar,en])=><Tag key={ar} p={p} ar={ar} en={en} view={view} showSphere={showSphere} color="#b8ddff"/>)}
+    {zenith&&<Tag p={V(0,1.18,0)} ar="سَمْتُ الرَّأْسِ" en="Zenith" showSphere={showSphere} color="#cfe8ff" view={view}/>}
+    {nadir&&<Tag p={V(0,-1.18,0)} ar="سَمْتُ الْقَدَمِ" en="Nadir" showSphere={showSphere} color="#cfe8ff" view={view}/>}
     {SEASONS.filter(s=>seasons.includes(s.longitude)).map(s=>{
       const p=sky.eclToLocal(s.longitude);
       return <group key={s.longitude}>
-        <mesh position={p}><sphereGeometry args={[0.018,12,12]}/><meshBasicMaterial color="#ffb883"/></mesh>
-        <Tag p={p.clone().multiplyScalar(1.17)} ar={s.ar} en={s.en} view={view} color="#ffcb93"/>
+        <mesh raycast={()=>null} position={p}><sphereGeometry args={[0.018,12,12]}/><meshBasicMaterial color="#ffb883"/></mesh>
+        <Tag p={p.clone().multiplyScalar(1.17)} ar={s.ar} en={s.en} view={view} showSphere={showSphere} color="#ffcb93"/>
       </group>;
     })}
-    {marks.map(mark=><MarkLine key={mark.id} mark={mark}/>)}
-    {pending&&<mesh position={v(pending).multiplyScalar(1.025)}>
+    {marks.map(mark=><MarkLine key={mark.id} mark={mark} view={view} showSphere={showSphere} edit={edit} onBeginEdit={onBeginEdit}/>)}
+    {pending&&<mesh raycast={()=>null} position={v(pending).multiplyScalar(view==="inside"?0.981:1.027)}>
       <sphereGeometry args={[0.022,18,18]}/><meshBasicMaterial color={color} depthTest={false}/></mesh>}
   </>;
 }
@@ -225,6 +263,7 @@ export function ClassroomApp(){
   const [nadir,setNadir]=useState(true);
   const [directions,setDirections]=useState(true);
   const [seasons,setSeasons]=useState<number[]>(SEASONS.map(s=>s.longitude));
+  const [showSphere,setShowSphere]=useState(true);
   const [tool,setTool]=useState<Tool>("orbit");
   const [shape,setShape]=useState(true);
   const [view,setView]=useState<View>("outside");
@@ -233,126 +272,198 @@ export function ClassroomApp(){
   const [color,setColor]=useState("#51a1ff");
   const [width,setWidth]=useState(3);
   const [pending,setPending]=useState<Vec|null>(null);
+  const [pendingScreen,setPendingScreen]=useState<XY|null>(null);
+  const [edit,setEdit]=useState<Edit|null>(null);
   const [marks,setMarks]=useState<Mark[]>([]);
   const [strokes,setStrokes]=useState<Stroke[]>([]);
   const [drawing,setDrawing]=useState<Stroke|null>(null);
   const [history,setHistory]=useState<Snapshot[]>([]);
-  const [info,setInfo]=useState("N / S / E / W · Drag to rotate · Shape ON draws on sphere.");
+  const [info,setInfo]=useState("Draw on the ball · Double-click endpoints to edit · Hide Sphere for circles only.");
+  const [eraserCursor,setEraserCursor]=useState<XY|null>(null);
   const cameraRef=useRef<THREE.Camera|null>(null);
-  const screenGesture=useRef<Gesture|null>(null);
+  const gesture=useRef<Gesture|null>(null);
   const nextId=useRef(1);
   const makeId=()=>String(nextId.current++);
   const snapshot=useCallback(()=>setHistory(old=>[...old,{marks,strokes}]),[marks,strokes]);
 
   const chooseTool=(next:Tool)=>{
-    setTool(next);setPending(null);setDrawing(null);
-    setInfo(next==="orbit"?"Drag to rotate freely north-to-south and east-to-west.":next==="eraser"?
-      "Eraser: click a drawn line to remove it; drag to erase only part.":
-      next==="pen"?"Shape ON: click points on the globe; drag globe to rotate. Shape OFF: freehand ink.":
-      "Click two sphere points to create a line or measure the angle.");
+    setTool(next);setPending(null);setPendingScreen(null);setDrawing(null);setEdit(null);
+    setInfo(next==="orbit"?"Drag vertically N–S or horizontally E–W; scroll/pinch to zoom.":
+      next==="eraser"?"Click any teacher-drawn line to remove it; drag across a portion to cut it.":
+      next==="pen"?"Shape ON: click the ball to trace its surface. Shape OFF: drag for freehand ink.":
+      next==="line"?"Shape ON: select two points on the ball surface. Shape OFF: select two free screen points.":
+      "Select two sphere points to measure their angular separation.");
   };
-  const onPoint=useCallback((point:Vec)=>{
-    if(tool==="pen"&&!shape)return;
-    if(tool==="eraser"||tool==="orbit")return;
-    if(!pending){setPending(point);setInfo("First point set. Click another point.");return;}
-    if(angle(pending,point)<0.006){setInfo("Choose a different point.");return;}
-    if(tool==="pen"&&shape){
-      snapshot();
-      setMarks(old=>[...old,{id:makeId(),points:shapePath(pending,point),
-        color,width,surface:true,inside:false}]);
-      setPending(point);
-      setInfo("Stroke added on sphere surface. Drag the globe to rotate; click to continue.");
-      return;
-    }
-    const theta=angle(pending,point);
-    if(placement==="outside"&&theta>2.7){
-      setInfo("Outside straight lines need two points less than 155° apart.");return;
-    }
-    snapshot();
-    setMarks(old=>[...old,{id:makeId(),points:straightPath(pending,point,placement),
-      color,width,surface:false,inside:placement==="inside",
-      measure:tool==="ruler"?deg(pending,point)+"°":undefined}]);
-    setPending(null);
-    setInfo((tool==="ruler"?"Measured":"Drawn") + " · " + deg(pending,point)+"° · "+placement);
-  },[pending,tool,shape,color,width,placement,snapshot]);
-  const erase3D=useCallback((point:Vec,drag:boolean)=>{
-    setMarks(old=>{
-      if(drag)return old.flatMap(m=>split3D(m,point,0.052));
-      const selected=nearestMark(old,point);
-      return selected?old.filter(m=>m.id!==selected):old;
-    });
-    setInfo(drag?"Erasing selected area of 3D drawing.":"Erased selected user-drawn 3D line.");
+  const moveEndpoint=useCallback((which:Edit,point:Vec)=>{
+    setMarks(old=>old.map(mark=>{
+      if(mark.id!==which.id||!mark.anchorA||!mark.anchorB)return mark;
+      const a=which.endpoint===0?point:mark.anchorA;
+      const b=which.endpoint===1?point:mark.anchorB;
+      if(angle(a,b)<0.003)return mark;
+      const pts=mark.surface?shapePath(a,b,mark.inside):
+        straightPath(a,b,mark.inside?"inside":"outside");
+      return {...mark,anchorA:a,anchorB:b,points:pts,measure:mark.kind==="ruler"?deg(a,b)+"°":undefined};
+    }));
   },[]);
-
+  const onBeginEdit=useCallback((id:string,endpoint:0|1)=>{
+    setPending(null);setPendingScreen(null);
+    setEdit({id,endpoint});
+    setInfo("Edit endpoint: drag it onto the sphere or click a new destination. Use Undo to reverse.");
+  },[]);
+  const onPoint=useCallback((point:Vec)=>{
+    if(edit){snapshot();moveEndpoint(edit,point);setEdit(null);setInfo("Endpoint moved · line extended on its original path.");return;}
+    if(tool==="orbit"||tool==="eraser")return;
+    if(!shape&&tool==="pen")return;
+    if(!shape&&tool==="line")return; // free 2D line is handled on the board.
+    if(!pending){setPending(point);setInfo("First point selected. Choose the next point on the sphere.");return;}
+    if(angle(pending,point)<0.006){setInfo("Choose a different point.");return;}
+    const isSurface=shape&&(tool==="line"||tool==="pen"||tool==="ruler");
+    if(!isSurface&&placement==="outside"&&angle(pending,point)>2.7){
+      setInfo("Free outside chords require points less than 155° apart.");return;
+    }
+    const a=pending,b=point;
+    snapshot();
+    setMarks(old=>[...old,{
+      id:makeId(),points:isSurface?shapePath(a,b,view==="inside"):straightPath(a,b,placement),
+      anchorA:a,anchorB:b,color,width,
+      kind:tool==="ruler"?"ruler":tool==="pen"?"pen":"line",
+      surface:isSurface,inside:isSurface?view==="inside":placement==="inside",
+      measure:tool==="ruler"?deg(a,b)+"°":undefined,
+    }]);
+    if(tool==="pen"&&shape){
+      setPending(point);
+      setInfo("Painted on the ball surface. Click to extend, drag to rotate.");
+    }else{
+      setPending(null);
+      setInfo("Surface line drawn. Double-click a colored endpoint to edit or extend.");
+    }
+  },[edit,tool,pending,shape,view,placement,color,width,snapshot,moveEndpoint]);
   const normalized=(e:ReactPointerEvent<HTMLElement>):XY=>{
     const rect=e.currentTarget.getBoundingClientRect();
     return [(e.clientX-rect.left)/Math.max(1,rect.width),(e.clientY-rect.top)/Math.max(1,rect.height)];
   };
-  const hitsGlobe=(e:ReactPointerEvent<HTMLElement>)=>{
-    if(!cameraRef.current)return false;
-    const pos=normalized(e);
-    const raycaster=new THREE.Raycaster();
-    raycaster.setFromCamera(new THREE.Vector2(pos[0]*2-1,1-pos[1]*2),cameraRef.current);
-    return raycaster.ray.intersectsSphere(new THREE.Sphere(new THREE.Vector3(),1));
+  const pixels=(e:ReactPointerEvent<HTMLElement>):XY=>{
+    const r=e.currentTarget.getBoundingClientRect();
+    return [e.clientX-r.left,e.clientY-r.top];
   };
+  const sphereAt=(e:ReactPointerEvent<HTMLElement>):Vec|null=>{
+    if(!cameraRef.current)return null;
+    const r=e.currentTarget.getBoundingClientRect();
+    const p=pixels(e);
+    return hitSphere(p,cameraRef.current,r.width,r.height);
+  };
+  const eraseAt=useCallback((p:XY,rect:DOMRect,partial:boolean)=>{
+    const camera=cameraRef.current;
+    const w=rect.width,h=rect.height;
+    if(!camera)return;
+    if(partial){
+      setMarks(old=>old.flatMap(mark=>cutMark(mark,p,camera,w,h,view,showSphere,17)));
+      setStrokes(old=>old.flatMap(stroke=>cutInk(stroke,p,w,h,17)));
+      return;
+    }
+    let nearest=17;
+    let selected:{id:string;kind:"mark"|"ink"}|null=null;
+    for(const mark of marks){
+      const distance=markHit(mark,p,camera,w,h,view,showSphere);
+      if(distance<nearest){nearest=distance;selected={id:mark.id,kind:"mark"};}
+    }
+    for(const stroke of strokes){
+      const distance=inkHit(stroke,p,w,h);
+      if(distance<nearest){nearest=distance;selected={id:stroke.id,kind:"ink"};}
+    }
+    if(!selected){setInfo("No drawn line under the eraser.");return;}
+    if(selected.kind==="mark")setMarks(old=>old.filter(x=>x.id!==selected!.id));
+    else setStrokes(old=>old.filter(x=>x.id!==selected!.id));
+    setInfo("Selected teacher-drawn line erased. Original great circles stay untouched.");
+  },[marks,strokes,view,showSphere]);
   const screenDown=(e:ReactPointerEvent<HTMLElement>)=>{
-    if(e.button!==0||screenGesture.current)return;
-    const free=tool==="pen"&&!shape;
-    const erasing=tool==="eraser";
-    if(!free&&!erasing)return;
-    // A pointer starting on the sphere goes to the 3D scene, not free ink.
-    // Inside free-ink mode intentionally writes over the classroom screen.
-    if(hitsGlobe(e)&&!(free&&view==="inside"))return;
+    if(e.button!==0||gesture.current)return;
+    const kind=edit?"edit":tool==="eraser"?"erase":
+      !shape&&tool==="pen"?"screen":!shape&&tool==="line"?"free-line":null;
+    if(!kind)return;
     e.stopPropagation();e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
-    screenGesture.current={pointer:e.pointerId,kind:free?"screen":"erase",x:e.clientX,y:e.clientY,dragged:false};
-    snapshot();
-    if(free)setDrawing({id:makeId(),points:[normalized(e)],color,width});
+    const p=pixels(e);
+    gesture.current={pointer:e.pointerId,kind,x:p[0],y:p[1],dragged:false};
+    if(kind==="edit"||kind==="erase"||kind==="screen")snapshot();
+    if(kind==="screen"){
+      setDrawing({id:makeId(),points:[normalized(e)],color,width});
+    }
+    if(kind==="erase")setEraserCursor(normalized(e));
   };
   const screenMove=(e:ReactPointerEvent<HTMLElement>)=>{
-    const g=screenGesture.current;
+    if(tool==="eraser")setEraserCursor(normalized(e));
+    const g=gesture.current;
     if(!g||g.pointer!==e.pointerId)return;
     e.stopPropagation();
-    const moved=Math.hypot(e.clientX-g.x,e.clientY-g.y)>6;
+    const p=pixels(e),r=e.currentTarget.getBoundingClientRect();
+    const moved=Math.hypot(p[0]-g.x,p[1]-g.y)>5;
     if(moved)g.dragged=true;
-    const p=normalized(e);
     if(g.kind==="screen"){
-      setDrawing(old=>old?{...old,points:[...old.points,p]}:null);
-    }else if(g.dragged){
-      setStrokes(old=>old.flatMap(s=>splitInk(s,p,0.022)));
-      setInfo("Erasing portions of freehand ink.");
+      const point=normalized(e);
+      setDrawing(old=>old?{...old,points:[...old.points,point]}:null);
+    }else if(g.kind==="erase"&&g.dragged){
+      const previous:XY=[g.x,g.y],spacing=Math.max(1,Math.ceil(dist2(previous,p)/9));
+      for(let i=1;i<=spacing;i++){
+        const test:XY=[previous[0]+(p[0]-previous[0])*i/spacing,previous[1]+(p[1]-previous[1])*i/spacing];
+        eraseAt(test,r,true);
+      }
+      g.x=p[0];g.y=p[1];
+      setInfo("Partial eraser: touching only user-drawn marks.");
+    }else if(g.kind==="edit"&&g.dragged&&edit){
+      const point=sphereAt(e);
+      if(point)moveEndpoint(edit,point);
     }
   };
   const screenUp=(e:ReactPointerEvent<HTMLElement>)=>{
-    const g=screenGesture.current;
+    const g=gesture.current;
     if(!g||g.pointer!==e.pointerId)return;
     e.stopPropagation();
     if(g.kind==="screen"){
-      if(drawing)setStrokes(old=>[...old,drawing]);
+      if(drawing){
+        const line={...drawing,points:drawing.points.length===1?[drawing.points[0]!,drawing.points[0]!]:drawing.points};
+        setStrokes(old=>[...old,line]);
+      }
       setDrawing(null);
-    }else if(!g.dragged){
-      const p=normalized(e);
-      setStrokes(old=>{
-        const selected=nearestStroke(old,p);
-        return selected?old.filter(s=>s.id!==selected):old;
-      });
+    }else if(g.kind==="erase"){
+      if(!g.dragged)eraseAt(pixels(e),e.currentTarget.getBoundingClientRect(),false);
+    }else if(g.kind==="free-line"&&!g.dragged){
+      const point=normalized(e);
+      if(!pendingScreen){setPendingScreen(point);setInfo("First free point saved. Click a second location.");}
+      else{
+        const id=makeId();
+        const points=Array.from({length:100},(_,i):XY=>[
+          pendingScreen[0]+(point[0]-pendingScreen[0])*i/99,
+          pendingScreen[1]+(point[1]-pendingScreen[1])*i/99]);
+        snapshot();setStrokes(old=>[...old,{id,color,width,points}]);
+        setPendingScreen(null);
+      }
+    }else if(g.kind==="edit"&&edit){
+      const point=sphereAt(e);
+      if(point)moveEndpoint(edit,point);
+      setEdit(null);
+      setInfo("Endpoint moved. Double-click another endpoint to edit.");
     }
-    screenGesture.current=null;
+    gesture.current=null;
     if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);
   };
   const undo=()=>{
-    if(pending){setPending(null);return;}
-    const last=history[history.length-1];if(!last)return;
-    setMarks(last.marks);setStrokes(last.strokes);setHistory(old=>old.slice(0,-1));
+    if(edit){setEdit(null);return;}
+    if(pending||pendingScreen){setPending(null);setPendingScreen(null);return;}
+    const previous=history[history.length-1];
+    if(!previous)return;
+    setMarks(previous.marks);setStrokes(previous.strokes);
+    setHistory(old=>old.slice(0,-1));
+    setInfo("Undo successful.");
   };
   const clear=()=>{
-    if(!marks.length&&!strokes.length&&!pending)return;
+    if(!marks.length&&!strokes.length&&!pending&&!pendingScreen)return;
     if(!window.confirm("Clear all classroom drawings?"))return;
-    snapshot();setMarks([]);setStrokes([]);setPending(null);setDrawing(null);
-    setInfo("Drawings cleared; built-in astronomical circles retained.");
+    snapshot();setMarks([]);setStrokes([]);setPending(null);setPendingScreen(null);setDrawing(null);setEdit(null);
+    setInfo("Teacher drawings cleared; the original astronomical circles remain.");
   };
 
-  return <main className="classroom-root classroom-v2" data-panel={mobilePanel} data-view={view}>
+  return <main className="classroom-root classroom-v2" data-panel={mobilePanel} data-view={view} data-shell={showSphere?"shown":"hidden"}>
     <header className="classroom-top classroom-glass">
       <Link to="/" className="classroom-back" aria-label="Back to Observatory"><ArrowLeft size={18}/></Link>
       <div className="classroom-title"><span className="classroom-kicker">TASHRIHUL AFLAK · TEACHING STUDIO</span>
@@ -364,18 +475,23 @@ export function ClassroomApp(){
       <button className="classroom-fullscreen" type="button" title="Fullscreen" onClick={()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}><Maximize2 size={17}/></button>
     </header>
     <section className="classroom-stage" aria-label="Interactive celestial sphere"
-      onPointerDownCapture={screenDown} onPointerMoveCapture={screenMove} onPointerUpCapture={screenUp} onPointerCancelCapture={screenUp}>
+      onPointerDownCapture={screenDown} onPointerMoveCapture={screenMove} onPointerUpCapture={screenUp} onPointerCancelCapture={screenUp} onPointerLeave={()=>setEraserCursor(null)}>
       <Canvas className="classroom-canvas" dpr={[1,1.7]}
         gl={{alpha:true,antialias:true}} camera={{position:[0,0,3.25],fov:45,near:0.002,far:80}}
         onCreated={({camera})=>{cameraRef.current=camera;}}>
         <Sphere visible={visible} zenith={zenith} nadir={nadir} directions={directions} seasons={seasons}
-          marks={marks} pending={pending} tool={tool} color={color} view={view} cmd={cmd} onPoint={onPoint} onErase={erase3D} onEraseBegin={snapshot}/>
+          marks={marks} pending={pending} tool={tool} color={color} view={view} cmd={cmd}
+          showSphere={showSphere} edit={edit} onPoint={onPoint} onBeginEdit={onBeginEdit}/>
       </Canvas>
       <svg className="classroom-ink-layer" viewBox="0 0 1000 1000" preserveAspectRatio="none"
         aria-label="Freehand annotation surface">
         {[...strokes,...(drawing?[drawing]:[])].map(s=><path key={s.id} d={inkPath(s.points)}
           fill="none" stroke={s.color} strokeWidth={s.width*1.8}
           strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke"/>)}
+        {pendingScreen&&<circle cx={pendingScreen[0]*1000} cy={pendingScreen[1]*1000} r={7}
+          stroke={color} strokeWidth={2} fill="none" vectorEffect="non-scaling-stroke"/>}
+        {tool==="eraser"&&eraserCursor&&<circle cx={eraserCursor[0]*1000} cy={eraserCursor[1]*1000}
+          r={15} fill="rgba(255,255,255,.10)" stroke="#fff2c2" strokeWidth={2} vectorEffect="non-scaling-stroke"/>}
       </svg>
     </section>
     <aside className="classroom-layers classroom-glass" aria-label="Great circle controls">
@@ -405,10 +521,18 @@ export function ClassroomApp(){
           <Shapes size={17}/><span><strong>Shape</strong><small>{shape?"ON · Click points on sphere surface":"OFF · Freehand anywhere off the sphere"}</small></span>
           <span className={"classroom-switch"+(shape?" on":"")}/>
         </button>
-        <p className="classroom-hint">Shape ON: click to draw on the sphere. Drag rotates the sphere without drawing. Shape OFF: freehand board ink.</p>
+        <p className="classroom-hint">Shape ON: both Pen and Line follow the ball surface (two clicks), while dragging rotates the sphere. Shape OFF: freehand Pen and point-to-point flat Line. Double-click a 3D endpoint to move or extend it.</p>
       </div>
       <div className="classroom-tool-section classroom-view-section">
         <div className="classroom-section-title"><Compass size={15}/> Sphere camera</div>
+        <button type="button" className={"classroom-hide-sphere"+(!showSphere?" is-hidden":"")}
+          aria-pressed={!showSphere} onClick={()=>setShowSphere(x=>!x)}>
+          {showSphere?<EyeOff size={17}/>:<Eye size={17}/>}
+          <span><strong>{showSphere?"Hide Sphere":"Show Sphere"}</strong>
+            <small>{showSphere?"Show only the circles and draw between them":"Only circles visible · click the invisible sphere to draw"}</small>
+          </span>
+          <span className="classroom-hide-status">{showSphere?"SHOWING":"HIDDEN"}</span>
+        </button>
         <div className="classroom-segmented">
           <button className={view==="outside"?"selected":""} onClick={()=>setView("outside")}>Outside</button>
           <button className={view==="inside"?"selected":""} onClick={()=>setView("inside")}>Inside view</button>
@@ -418,7 +542,7 @@ export function ClassroomApp(){
             <button key={name} onClick={()=>setCmd(old=>({number:old.number+1,dir}))}>{name}</button>
           ))}
         </div>
-        <p className="classroom-hint">{view==="inside"?"Camera is inside the globe. Rotate in all directions; Shape ON can mark any point on the inner surface.":"Outside view shows a full visible hemisphere. Use N/S/E/W and Top/Bottom for every side."}</p>
+        <p className="classroom-hint">{view==="inside"?"Inside: scroll / pinch to zoom from the center toward the inner surface. Shape ON paints on the inner wall.":"Outside: scroll / pinch to zoom. N/S/E/W moves across the complete visible hemisphere."}</p>
       </div>
       <div className="classroom-tool-section"><div className="classroom-section-title"><Palette size={15}/> Ink color</div>
         <div className="classroom-swatches">{PALETTE.map(c=><button key={c} type="button"
@@ -434,7 +558,7 @@ export function ClassroomApp(){
           <button className={placement==="inside"?"selected":""} onClick={()=>{setPlacement("inside");setPending(null);}}>Inside</button>
           <button className={placement==="outside"?"selected":""} onClick={()=>{setPlacement("outside");setPending(null);}}>Outside</button>
         </div>
-        <p className="classroom-hint">With Line or Scale, click two points on the globe. Inside creates a chord; Outside makes a raised straight line. Scale shows angular separation.</p>
+        <p className="classroom-hint">Shape ON: Line and Pen are painted directly on the sphere. Shape OFF: Line is drawn freely on the whiteboard; Scale still measures the globe. Inside / Outside controls where non-surface measurements appear.</p>
       </div>
       <div className="classroom-tool-section"><div className="classroom-section-title"><Compass size={15}/> Reference points</div>
         <div className="classroom-toggles">
@@ -450,9 +574,9 @@ export function ClassroomApp(){
           <strong dir="rtl">{s.ar}</strong><small>{s.en}</small></button>)}</div>
       </div>
       <div className="classroom-actions">
-        <button onClick={undo} disabled={!pending&&!history.length}><Undo2 size={15}/> Undo</button>
-        <button onClick={clear} disabled={!pending&&!history.length&&marks.length===0&&strokes.length===0}><Eraser size={15}/> Clear</button>
-        <button onClick={()=>{setMarks([]);setStrokes([]);setHistory([]);setPending(null);setVisible(DEFAULT_VISIBLE);setSeasons(SEASONS.map(s=>s.longitude));setZenith(true);setNadir(true);setDirections(true);setView("outside");setCmd(old=>({number:old.number+1,dir:[0,0,1]}));setShape(true);chooseTool("orbit");}}><RotateCcw size={15}/> Reset</button>
+        <button onClick={undo} disabled={!edit&&!pending&&!pendingScreen&&!history.length}><Undo2 size={15}/> Undo</button>
+        <button onClick={clear} disabled={!pending&&!pendingScreen&&marks.length===0&&strokes.length===0}><Eraser size={15}/> Clear</button>
+        <button onClick={()=>{setMarks([]);setStrokes([]);setHistory([]);setPending(null);setPendingScreen(null);setEdit(null);setShowSphere(true);setVisible(DEFAULT_VISIBLE);setSeasons(SEASONS.map(s=>s.longitude));setZenith(true);setNadir(true);setDirections(true);setView("outside");setCmd(old=>({number:old.number+1,dir:[0,0,1]}));setShape(true);chooseTool("orbit");}}><RotateCcw size={15}/> Reset</button>
       </div>
     </aside>
     <div className="classroom-status classroom-glass" role="status"><span className="classroom-status-dot"/><span>{info}</span>

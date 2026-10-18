@@ -139,3 +139,32 @@
  .classroom-v2 .classroom-tool{min-height:55px}
  .classroom-v2 .classroom-status{bottom:8px}
 }
+
+/* Ball-surface drawing classroom: sphere visibility and precise eraser controls */
+.classroom-hide-sphere{
+  display:flex;align-items:center;gap:10px;width:100%;padding:12px 11px;
+  margin:0 0 12px;text-align:left;border:1px solid #d0def2;
+  background:linear-gradient(125deg,rgba(242,248,255,.96),rgba(255,255,255,.78));
+  border-radius:14px;color:#37689e;transition:background .17s,border-color .17s;
+}
+.classroom-hide-sphere:hover{border-color:#77b8ec;background:#e7f4ff}
+.classroom-hide-sphere.is-hidden{
+  color:#1a548f;border-color:#7fbbe9;
+  background:linear-gradient(115deg,#d8eeff,#f5faff);
+}
+.classroom-hide-sphere>span:nth-child(2){display:flex;flex:1;min-width:0;flex-direction:column;gap:3px}
+.classroom-hide-sphere strong{font-size:12px;line-height:1.3;font-weight:700}
+.classroom-hide-sphere small{font-size:9px;line-height:1.45;color:#7892ae}
+.classroom-hide-status{color:#839ab5;flex:none;font-size:8px;letter-spacing:.06em;font-weight:700}
+.classroom-hide-sphere.is-hidden .classroom-hide-status{color:#2378c8}
+.classroom-root[data-shell="hidden"] .classroom-stage{
+  background:radial-gradient(circle at 49% 46%,#0a1930,#060b17 60%,#02040c 100%);
+}
+.classroom-root[data-shell="hidden"] .classroom-status-dot{background:#428de7}
+.classroom-v2 .classroom-tool-section .classroom-hint{max-width:100%;overflow-wrap:break-word}
+.classroom-v2 .classroom-ink-layer{pointer-events:none}
+.classroom-v2 .classroom-ink-layer circle{filter:drop-shadow(0 1px 5px rgba(0,0,0,.5))}
+@media(max-width:760px){
+  .classroom-hide-sphere{padding:10px}
+  .classroom-v2 .classroom-tools{max-height:47vh}
+}
