@@ -1,24 +1,43 @@
-# Pixel Perfect Snapshot
+# Tashrihul Aflak 3D — Interactive Celestial Sphere
 
-Implement exactly the screenshot and nothing else
+Interactive classical astronomy observatory using React, TanStack Start, React Three Fiber, Three.js and `astronomy-engine`.
 
-This project was built with [Lovable](https://lovable.dev).
+## Repository & deployment
 
-## Build with Lovable
+Source code: GitHub `rockshan123/astronomyf`  
+Hosting: Vercel project `astronomyf` (team `english-567b`).  
+Framework: TanStack Start, built with Nitro's official Vite plugin.
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/3160dab5-8d9f-4d8d-857c-d5274493c665).
+This project does not require the Lovable editor, Vite wrapper, or Lovable runtime telemetry.
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+## Local development
 
-## Development
+Use **Node.js 22 LTS** and **npm**. The migration consolidates dependency installation on npm and generates `package-lock.json`.
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
+```bash
+npm ci
 npm run dev
 ```
+
+## Validation before merge
+
+```bash
+npm run typecheck
+npm run test
+npm run build
+```
+
+Create a Pull Request, inspect the Vercel Preview Deployment, and only then merge into `main`.
+
+## Astronomy source preservation
+
+- `src/lib/astronomy/` contains astronomical coordinate calculations.
+- `src/components/sky/` contains the 3D interactive scene.
+- `src/data/layers.ts` contains the defined circles and arcs.
+- `public/references/` contains 30 reference illustrations.
+
+The Sun moves on the *apparent* ecliptic in this Earth-centered teaching visualization. It is not a physical geocentric model.
+
+## Migration note
+
+After the production deployment is verified, disconnect GitHub sync **in Lovable's project settings**. Removing `.lovable/` in Git alone does not disconnect the external integration.
