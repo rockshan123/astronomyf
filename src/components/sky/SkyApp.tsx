@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { Canvas } from "@react-three/fiber";
+import { Link } from "@tanstack/react-router";
 import { useSky, TOGGLES, type ToggleKey, type Lang } from "@/store/useSky";
 import { LAYERS, GROUPS, PRESETS, LAYER_BY_ID, type Group } from "@/data/layers";
 import { buildLayer } from "@/lib/astronomy/layerGeometry";
@@ -8,7 +9,7 @@ import { localToAltAz } from "@/lib/astronomy/math";
 import { Scene } from "./Scene";
 import {
   Search, Eye, EyeOff, Crosshair, Focus, Play, Pause, RotateCcw, Maximize, Camera, Share2, X,
-  PanelLeft, HelpCircle, MonitorPlay, MapPin, Orbit, Clock, Footprints, ImageOff,
+  PanelLeft, HelpCircle, MonitorPlay, MapPin, Orbit, Clock, Footprints, ImageOff, PenLine,
 } from "lucide-react";
 
 const MULTS: [string, number][] = [["1×", 1], ["10×", 10], ["100×", 100], ["1 h/s", 3600], ["1 day/10s", 8640], ["1 yr/30s", 365.25 * 86400 / 30]];
@@ -94,6 +95,7 @@ function TopBar({ onHelp, onPresent }: { onHelp: () => void; onPresent: () => vo
         <span className="brand-ar" dir="rtl">تَشْرِيحُ الْأَفْلَاك</span>
         <span className="brand-en">TASHRIHUL AFLAK 3D</span>
       </div>
+      <Link to="/classroom" className="sky-btn classroom-nav-link"><PenLine size={14} /> Classroom</Link>
       <div className="seg" role="group" aria-label="Language">
         {(["ml", "ar", "en"] as Lang[]).map((l) => (
           <button key={l} className={lang === l ? "on" : ""} onClick={() => set({ lang: l })}>{l === "ml" ? "മലയാളം" : l === "ar" ? "العربية" : "English"}</button>

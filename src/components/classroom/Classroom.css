@@ -1,0 +1,105 @@
+.classroom-root{position:fixed;inset:0;z-index:40;overflow:hidden;background:#fff;color:#1c2d45;font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:13px}
+.classroom-root *{box-sizing:border-box}
+.classroom-root button{cursor:pointer}
+.classroom-root button:disabled{cursor:not-allowed;opacity:.4}
+.classroom-root button:focus-visible,.classroom-root input:focus-visible,.classroom-root a:focus-visible{outline:3px solid #72abf7;outline-offset:2px}
+.classroom-glass{background:rgba(255,255,255,.60);border:1px solid rgba(180,198,224,.55);box-shadow:0 9px 28px rgba(58,88,134,.10),inset 0 1px 0 rgba(255,255,255,.90);-webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);border-radius:22px}
+.classroom-top{position:absolute;z-index:12;top:15px;left:20px;right:20px;height:66px;display:flex;align-items:center;gap:14px;padding:10px 16px}
+.classroom-back,.classroom-fullscreen{flex:none;display:grid;place-items:center;width:39px;height:39px;border:1px solid rgba(163,183,208,.48);background:rgba(255,255,255,.46);border-radius:13px;color:#3b5577;text-decoration:none}
+.classroom-back:hover,.classroom-fullscreen:hover{background:rgba(227,238,255,.8)}
+.classroom-title{min-width:0;display:flex;flex:1;flex-direction:column;gap:2px}
+.classroom-kicker,.classroom-overline{color:#899ab0;font-weight:700;font-size:9px;letter-spacing:.17em}
+.classroom-heading{font-size:17px;letter-spacing:-.03em;font-weight:700;color:#17283d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.classroom-heading b{font-family:"Amiri",serif;font-size:17px;font-weight:700;color:#42669a;margin-left:7px}
+.classroom-stage{position:absolute;inset:0;background:#fff}
+.classroom-canvas{position:absolute!important;inset:0;touch-action:none}
+.classroom-ink-layer{position:absolute;inset:0;z-index:4;pointer-events:none}
+.classroom-ink-layer.can-draw{pointer-events:auto;cursor:crosshair;touch-action:none}
+.classroom-layers,.classroom-tools{position:absolute;z-index:8;top:96px;bottom:69px;display:flex;flex-direction:column;overflow:hidden;padding:15px}
+.classroom-layers{left:20px;width:291px}
+.classroom-tools{right:20px;width:302px;overflow-y:auto;scrollbar-color:rgba(140,170,200,.45) transparent;scrollbar-width:thin}
+.classroom-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:9px;padding:2px 2px 14px}
+.classroom-panel-head h2{font-family:"Amiri",serif;color:#233a5a;font-size:20px;font-weight:700;line-height:1.6;margin:1px 0 0}
+.classroom-panel-head .classroom-tool-heading{font-family:"IBM Plex Sans",sans-serif;font-size:18px;line-height:1.35;letter-spacing:-.04em}
+.classroom-panel-head p{font-size:10px;color:#8091a7;margin:0}
+.classroom-tiny{white-space:nowrap;color:#3974bb;font-weight:600;background:#f3f8ff;border:1px solid #d9e7f8;padding:6px 8px;border-radius:9px;font-size:10px}
+.classroom-circle-list{display:flex;flex:1;flex-direction:column;gap:5px;overflow:auto;padding:2px;scrollbar-color:rgba(140,170,200,.43) transparent;scrollbar-width:thin}
+.classroom-circle-row{display:flex;align-items:center;gap:9px;border:1px solid transparent;padding:9px 8px;border-radius:13px;transition:background .18s,border .18s}
+.classroom-circle-row:hover{background:rgba(230,238,251,.65)}
+.classroom-circle-row.active{border-color:#d5e5fb;background:rgba(233,242,255,.75)}
+.classroom-circle-row input{position:absolute;opacity:0;width:1px;height:1px}
+.classroom-circle-row:has(input:focus-visible){outline:2px solid #78abed}
+.classroom-circle-color{flex:none;width:9px;height:30px;border-radius:8px}
+.classroom-circle-label{flex:1;display:flex;min-width:0;flex-direction:column;gap:1px}
+.classroom-circle-label strong{font-family:"Amiri",serif;direction:rtl;text-align:left;color:#2a415d;font-weight:700;font-size:15px;line-height:1.35;overflow-wrap:anywhere}
+.classroom-circle-label small{font-size:10px;color:#94a2b4;line-height:1.4}
+.classroom-circle-check{flex:none;display:grid;place-items:center;width:21px;height:21px;color:#407bd1}
+.classroom-source-note{border-top:1px solid #e2e9f1;padding:11px 4px 2px;margin-top:6px;color:#9aa6b7;font-size:10px;line-height:1.45}
+.classroom-toolstrip{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;background:#edf3fb;padding:5px;border-radius:15px}
+.classroom-tool{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;border:1px solid transparent;border-radius:11px;min-height:58px;color:#68809f;font-size:10px;font-weight:600}
+.classroom-tool.is-active{color:#1665b2;background:rgba(255,255,255,.94);border-color:#d5e4f7;box-shadow:0 3px 9px rgba(47,80,116,.09)}
+.classroom-tool-section{padding:14px 2px 13px;border-bottom:1px solid #e7edf5}
+.classroom-section-title{display:flex;align-items:center;gap:7px;color:#49617f;font-size:11px;font-weight:700;margin-bottom:10px}
+.classroom-swatches{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+.classroom-swatch{height:24px;width:24px;border-radius:50%;border:3px solid white;box-shadow:0 1px 5px rgba(0,0,0,.10)}
+.classroom-swatch.on{outline:2px solid #78a8dc;outline-offset:1px}
+.classroom-color-input{display:grid;place-items:center;width:25px;height:25px;border:1px solid #d4e2f3;border-radius:50%;overflow:hidden;cursor:pointer}
+.classroom-color-input input{width:34px;height:34px;border:0;padding:0;cursor:pointer}
+.classroom-width{display:flex;align-items:center;flex-wrap:wrap;justify-content:space-between;font-size:10px;color:#7389a2;margin-top:14px}
+.classroom-width output{font-variant-numeric:tabular-nums}
+.classroom-width input{width:100%;margin-top:7px;accent-color:#397fce}
+.classroom-segmented{display:flex;background:#edf3fa;border-radius:12px;padding:4px;gap:4px}
+.classroom-segmented button{flex:1;font-size:11px;color:#788da5;padding:8px 7px;border-radius:9px}
+.classroom-segmented button.selected{background:#fff;box-shadow:0 2px 8px rgba(30,68,108,.09);color:#216bad;font-weight:700}
+.classroom-hint{font-size:10px;color:#8999a9;line-height:1.6;margin:9px 3px 0}
+.classroom-toggles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+.classroom-toggles button,.classroom-seasons button{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px;padding:8px 4px;border:1px solid #e3ebf5;border-radius:10px;color:#94a2b7;background:rgba(255,255,255,.5);min-width:0}
+.classroom-toggles button.on,.classroom-seasons button.on{color:#246bab;background:#e8f2ff;border-color:#c6def8}
+.classroom-toggles button span{font-size:13px;font-family:"Amiri",serif;line-height:1.3}
+.classroom-toggles button small,.classroom-seasons button small{font-size:9px;font-family:"IBM Plex Sans",sans-serif;color:#96a4b6;line-height:1.3}
+.classroom-seasons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.classroom-seasons button{min-height:55px;padding:7px 4px}
+.classroom-seasons strong{font-family:"Amiri",serif;font-size:15px;line-height:1.3}
+.classroom-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:14px 0 0}
+.classroom-actions button{border:1px solid #dfe7f2;border-radius:10px;padding:10px 6px;display:flex;align-items:center;gap:5px;justify-content:center;font-size:11px;color:#526e90;background:rgba(255,255,255,.5)}
+.classroom-actions button:hover:not(:disabled){background:#e9f3ff}
+.classroom-status{position:absolute;z-index:9;left:50%;bottom:14px;transform:translateX(-50%);min-width:260px;max-width:calc(100vw - 24px);display:flex;align-items:center;justify-content:center;gap:8px;padding:11px 16px;color:#66809f;font-size:11px;text-align:center}
+.classroom-status-dot{width:7px;height:7px;background:#4abb9c;border-radius:50%;flex:none}
+.classroom-status button{display:flex;align-items:center;gap:3px;color:#2576ba;font-weight:600}
+.classroom-space-label{font-family:"IBM Plex Sans",sans-serif;white-space:nowrap;user-select:none;text-align:center;text-shadow:0 1px #fff,1px 0 #fff,-1px 0 #fff;line-height:1.15}
+.classroom-space-label strong{font-family:"Amiri",serif;font-size:15px;line-height:1.35;display:block}
+.classroom-space-label small{font-size:9px;display:block;color:#8c9cad}
+.classroom-measure-label{padding:5px 9px;border-radius:9px;border:1px solid #b7d5f4;background:#fff;color:#306db1;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 3px 12px rgba(30,68,108,.12)}
+@media(max-width:1050px){
+ .classroom-layers{left:12px;width:235px}
+ .classroom-tools{right:12px;width:256px}
+ .classroom-top{left:12px;right:12px}
+ .classroom-heading{font-size:15px}
+ .classroom-heading b{font-size:15px}
+}
+@media(max-width:760px){
+ .classroom-top{top:8px;height:56px;padding:8px}
+ .classroom-kicker{font-size:8px}
+ .classroom-heading{font-size:13px}
+ .classroom-heading b{display:none}
+ .classroom-layers,.classroom-tools{top:auto;bottom:62px;left:8px;right:8px;width:auto;max-height:43vh;padding:11px;border-radius:18px}
+ .classroom-layers{display:none}
+ .classroom-tools{max-height:43vh}
+ .classroom-circle-list{min-height:0}
+ .classroom-panel-head{padding-bottom:7px}
+ .classroom-status{bottom:8px;padding:8px 10px;white-space:normal;font-size:10px}
+}
+@media(prefers-reduced-motion:reduce){.classroom-circle-row{transition:none}}
+
+.classroom-mobile-tabs{display:none}
+@media(max-width:760px){
+  .classroom-mobile-tabs{display:flex;gap:3px;padding:3px;border-radius:11px;background:#edf4ff;flex:none}
+  .classroom-mobile-tabs button{font-size:10px;padding:6px 9px;border-radius:8px;color:#6380a1}
+  .classroom-mobile-tabs button.selected{background:white;color:#286cba;font-weight:700;box-shadow:0 1px 6px rgba(27,61,110,.13)}
+  .classroom-root[data-panel="layers"] .classroom-layers{display:flex}
+  .classroom-root[data-panel="layers"] .classroom-tools{display:none}
+  .classroom-root[data-panel="tools"] .classroom-layers{display:none}
+  .classroom-root[data-panel="tools"] .classroom-tools{display:flex}
+  .classroom-heading{font-size:12px}
+  .classroom-kicker{letter-spacing:.03em}
+}
