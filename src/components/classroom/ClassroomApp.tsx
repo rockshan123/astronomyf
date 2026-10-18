@@ -1,25 +1,26 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
-import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Html, Line, OrbitControls } from "@react-three/drei";
 import { Link } from "@tanstack/react-router";
 import * as THREE from "three";
 import type { OrbitControls as OrbitImpl } from "three-stdlib";
-import { ArrowLeft, Check, Compass, Eraser, Eye, EyeOff, Maximize2, MousePointer2, Palette, PenLine, RotateCcw, Ruler, Slash, Undo2, X, Shapes } from "lucide-react";
+import { ArrowLeft, Check, Compass, Eraser, Eye, EyeOff, Maximize2, MousePointer2, Palette, PenLine, RotateCcw, Ruler, Slash, Undo2, X, Shapes, Triangle, DraftingCompass } from "lucide-react";
 import { LAYERS } from "@/data/layers";
 import { buildLayer } from "@/lib/astronomy/layerGeometry";
 import { computeSky } from "@/lib/astronomy/sky";
 import { greatCircle, planeNormal, slerpArc, V } from "@/lib/astronomy/math";
+import { ClassroomInstrument } from "./ClassroomInstruments";
 import "./Classroom.css";
 
 type Vec = [number,number,number];
 type XY = [number,number];
-type Tool = "orbit" | "pen" | "line" | "ruler" | "eraser";
+type Tool = "orbit" | "pen" | "line" | "ruler" | "eraser" | "triangle" | "protractor";
 type Place = "inside" | "outside";
 type View = "outside" | "inside";
 type Mark = {id:string;points:Vec[];color:string;width:number;surface:boolean;inside:boolean;measure?:string;anchorA?:Vec;anchorB?:Vec;kind?:"pen"|"line"|"ruler"};
-type Stroke = {id:string;points:XY[];color:string;width:number};
+type Stroke = {id:string;points:XY[];color:string;width:number;measure?:{x:number;y:number;label:string}};
 type Snapshot = {marks:Mark[];strokes:Stroke[]};
-type Gesture = {pointer:number;kind:"screen"|"erase"|"free-line"|"edit";x:number;y:number;dragged:boolean};
+type Gesture = {pointer:number;kind:"screen"|"erase"|"free-line"|"edit"|"sphere"|"free-multi";x:number;y:number;startX:number;startY:number;dragged:boolean};
 type Edit = {id:string;endpoint:0|1};
 type CameraCmd = {number:number;dir:Vec};
 const SEASONS = [
@@ -120,8 +121,20 @@ function hitSphere(screen:XY,camera:THREE.Camera,w:number,h:number):Vec|null {
   const at=ray.ray.intersectSphere(new THREE.Sphere(new THREE.Vector3(),1),new THREE.Vector3());
   return at?t(at.normalize()):null;
 }
-function inkPath(points:XY[]){
-  return points.map((p,i)=>(i?"L":"M")+(p[0]*1000).toFixed(2)+" "+(p[1]*1000).toFixed(2)).join(" ");
+function inkPath(points:XY[],size:XY){
+  return points.map((p,i)=>(i?"L":"M")+(p[0]*size[0]).toFixed(2)+" "+(p[1]*size[1]).toFixed(2)).join(" ");
+}
+function angleAt(a:Vec,vertex:Vec,b:Vec){
+  const o=v(vertex),p=v(a),q=v(b);
+  const t1=p.addScaledVector(o,-p.dot(o)).normalize();
+  const t2=q.addScaledVector(o,-q.dot(o)).normalize();
+  return THREE.MathUtils.radToDeg(t1.angleTo(t2));
+}
+function planarAngle(a:XY,vertex:XY,b:XY){
+  const u=new THREE.Vector2(a[0]-vertex[0],a[1]-vertex[1]);
+  const v=new THREE.Vector2(b[0]-vertex[0],b[1]-vertex[1]);
+  if(u.lengthSq()<1e-10||v.lengthSq()<1e-10)return 0;
+  return THREE.MathUtils.radToDeg(u.angleTo(v));
 }
 
 function Tag({p,ar,en,color,view,showSphere}:{p:THREE.Vector3;ar:string;en?:string;color?:string;view:View;showSphere:boolean}) {
@@ -199,18 +212,8 @@ function Sphere({visible,zenith,nadir,directions,seasons,marks,pending,tool,colo
     const lines=geom.lines.length?geom.lines:layer.num===9?[greatCircle(planeNormal(sky.K,V(0,1,0)))]:[];
     return {layer,lines};
   }),[sky]);
-  const downAt=useRef<XY|null>(null);
-  const down=(e:ThreeEvent<PointerEvent>)=>{
-    if(tool==="eraser")return;
-    downAt.current=[e.clientX,e.clientY];
-  };
-  const up=(e:ThreeEvent<PointerEvent>)=>{
-    if(!downAt.current)return;
-    const start=downAt.current;downAt.current=null;
-    if(tool==="orbit"||tool==="eraser")return;
-    if(dist2(start,[e.clientX,e.clientY])<7)onPoint(t(e.point.clone().normalize()));
-    // Dragging the sphere always rotates the camera; it never lays ink.
-  };
+  // All tool positions are resolved once from stage-relative pointer coordinates.
+  // The invisible sphere is visual-only here; stage handles click raycasting.
   return <>
     <ambientLight intensity={0.9}/>
     <ClassroomCamera view={view} cmd={cmd} enabled={tool!=="eraser"&&!edit}/>
@@ -218,7 +221,7 @@ function Sphere({visible,zenith,nadir,directions,seasons,marks,pending,tool,colo
       <sphereGeometry args={[0.997,72,56]}/><meshBasicMaterial colorWrite={false} depthWrite/>
     </mesh>}
     {/* Invisible raycast sphere remains usable when the shell is hidden. */}
-    <mesh onPointerDown={down} onPointerUp={up}>
+    <mesh raycast={()=>null}>
       <sphereGeometry args={[1,96,72]}/>
       <meshBasicMaterial side={THREE.DoubleSide} colorWrite={false} depthWrite={false}/>
     </mesh>
@@ -228,11 +231,17 @@ function Sphere({visible,zenith,nadir,directions,seasons,marks,pending,tool,colo
       <mesh scale={1.001} raycast={()=>null}><sphereGeometry args={[1,32,24]}/>
         <meshBasicMaterial side={THREE.DoubleSide} color="#80a7cf" wireframe transparent opacity={0.07} depthWrite={false}/></mesh>
     </>}
-    {great.filter(({layer})=>visible.includes(layer.id)).map(({layer,lines})=><group key={layer.id}>
-      {lines.map((pts,i)=><Line key={i} points={pts.map(p=>p.clone().multiplyScalar(1.008))}
-        color={layer.color} lineWidth={layer.num<=2?3.2:2.2}
-        transparent opacity={0.98} depthTest={showSphere&&view==="outside"} depthWrite={false} raycast={()=>null}/>)}
-    </group>)}
+    {great.filter(({layer})=>visible.includes(layer.id)).map(({layer,lines})=>{
+      const geometry=buildLayer(layer.id,sky);
+      const at=(geometry.label??lines[0]?.[Math.floor((lines[0]?.length??1)*0.21)]??V(0,0,1))
+        .clone().normalize().multiplyScalar(view==="inside"?0.987:1.095);
+      return <group key={layer.id}>
+        {lines.map((pts,i)=><Line key={i} points={pts.map(p=>p.clone().multiplyScalar(1.008))}
+          color={layer.color} lineWidth={layer.num<=2?3.2:2.2}
+          transparent opacity={0.98} depthTest={showSphere&&view==="outside"} depthWrite={false} raycast={()=>null}/>)}
+        <Tag p={at} ar={layer.ar} view={view} showSphere={showSphere} color={layer.color}/>
+      </group>;
+    })}
     {directions&&([
       [V(0,0,-1.16),"N","North"],[V(0,0,1.16),"S","South"],
       [V(1.16,0,0),"E","East"],[V(-1.16,0,0),"W","West"]
@@ -273,6 +282,12 @@ export function ClassroomApp(){
   const [width,setWidth]=useState(3);
   const [pending,setPending]=useState<Vec|null>(null);
   const [pendingScreen,setPendingScreen]=useState<XY|null>(null);
+  const [pendingVertices,setPendingVertices]=useState<Vec[]>([]);
+  const [pendingScreenVertices,setPendingScreenVertices]=useState<XY[]>([]);
+  const [rulerVisible,setRulerVisible]=useState(false);
+  const [protractorVisible,setProtractorVisible]=useState(false);
+  const stageRef=useRef<HTMLElement|null>(null);
+  const [stageSize,setStageSize]=useState<XY>([1000,700]);
   const [edit,setEdit]=useState<Edit|null>(null);
   const [marks,setMarks]=useState<Mark[]>([]);
   const [strokes,setStrokes]=useState<Stroke[]>([]);
@@ -281,18 +296,31 @@ export function ClassroomApp(){
   const [info,setInfo]=useState("Draw on the ball · Double-click endpoints to edit · Hide Sphere for circles only.");
   const [eraserCursor,setEraserCursor]=useState<XY|null>(null);
   const cameraRef=useRef<THREE.Camera|null>(null);
+  useEffect(()=>{
+    const stage=stageRef.current;
+    if(!stage)return;
+    const sync=()=>{const rect=stage.getBoundingClientRect();
+      setStageSize([Math.max(1,rect.width),Math.max(1,rect.height)]);};
+    sync();
+    const observer=new ResizeObserver(sync);
+    observer.observe(stage);
+    return ()=>observer.disconnect();
+  },[]);
   const gesture=useRef<Gesture|null>(null);
   const nextId=useRef(1);
   const makeId=()=>String(nextId.current++);
   const snapshot=useCallback(()=>setHistory(old=>[...old,{marks,strokes}]),[marks,strokes]);
 
   const chooseTool=(next:Tool)=>{
-    setTool(next);setPending(null);setPendingScreen(null);setDrawing(null);setEdit(null);
+    setTool(next);setPending(null);setPendingScreen(null);setPendingVertices([]);setPendingScreenVertices([]);setDrawing(null);setEdit(null);
     setInfo(next==="orbit"?"Drag vertically N–S or horizontally E–W; scroll/pinch to zoom.":
       next==="eraser"?"Click any teacher-drawn line to remove it; drag across a portion to cut it.":
       next==="pen"?"Shape ON: click the ball to trace its surface. Shape OFF: drag for freehand ink.":
       next==="line"?"Shape ON: select two points on the ball surface. Shape OFF: select two free screen points.":
-      "Select two sphere points to measure their angular separation.");
+      next==="triangle"?"Choose three points. Shape ON draws spherical edges; OFF draws straight triangle sides.":
+      next==="protractor"?"Choose vertex, first arm, second arm to measure the angle.":
+      "Select two points to measure their angular separation.");
+    if(next==="protractor")setProtractorVisible(true);
   };
   const moveEndpoint=useCallback((which:Edit,point:Vec)=>{
     setMarks(old=>old.map(mark=>{
@@ -311,57 +339,69 @@ export function ClassroomApp(){
     setInfo("Edit endpoint: drag it onto the sphere or click a new destination. Use Undo to reverse.");
   },[]);
   const onPoint=useCallback((point:Vec)=>{
-    if(edit){snapshot();moveEndpoint(edit,point);setEdit(null);setInfo("Endpoint moved · line extended on its original path.");return;}
-    if(tool==="orbit"||tool==="eraser")return;
-    if(!shape&&tool==="pen")return;
-    if(!shape&&tool==="line")return; // free 2D line is handled on the board.
-    if(!pending){setPending(point);setInfo("First point selected. Choose the next point on the sphere.");return;}
-    if(angle(pending,point)<0.006){setInfo("Choose a different point.");return;}
-    const isSurface=shape&&(tool==="line"||tool==="pen"||tool==="ruler");
-    if(!isSurface&&placement==="outside"&&angle(pending,point)>2.7){
-      setInfo("Free outside chords require points less than 155° apart.");return;
+    if(edit){snapshot();moveEndpoint(edit,point);setEdit(null);setInfo("Endpoint moved. Undo restores the previous position.");return;}
+    if(tool==="orbit"||tool==="eraser"||!shape)return;
+    if(tool==="triangle"||tool==="protractor"){
+      const points=[...pendingVertices,point];
+      if(points.length<3){
+        setPendingVertices(points);
+        setInfo(points.length===1?"Point 1 saved. Choose point 2.":"Point 2 saved. Choose point 3.");
+        return;
+      }
+      const [a,b,c]=points as [Vec,Vec,Vec];
+      const edges=tool==="triangle"?[[a,b],[b,c],[c,a]]:[[a,b],[a,c]];
+      snapshot();
+      const newMarks:Mark[]=edges.map((edge,index)=>({
+        id:makeId(),anchorA:edge[0]!,anchorB:edge[1]!,
+        points:shapePath(edge[0]!,edge[1]!,view==="inside"),
+        color,width,surface:true,inside:view==="inside",
+        kind:"line",measure:tool==="protractor"&&index===0?angleAt(b,a,c).toFixed(1)+"°":undefined,
+      }));
+      setMarks(old=>[...old,...newMarks]);
+      setPendingVertices([]);
+      setInfo(tool==="triangle"?"A three-sided surface triangle is drawn.":"Spherical angle: "+angleAt(b,a,c).toFixed(1)+"°");
+      return;
     }
+    if(!pending){setPending(point);setInfo("First point selected. Click the next point on the ball.");return;}
+    if(angle(pending,point)<0.006){setInfo("Choose a different point.");return;}
     const a=pending,b=point;
     snapshot();
     setMarks(old=>[...old,{
-      id:makeId(),points:isSurface?shapePath(a,b,view==="inside"):straightPath(a,b,placement),
+      id:makeId(),points:shapePath(a,b,view==="inside"),
       anchorA:a,anchorB:b,color,width,
       kind:tool==="ruler"?"ruler":tool==="pen"?"pen":"line",
-      surface:isSurface,inside:isSurface?view==="inside":placement==="inside",
+      surface:true,inside:view==="inside",
       measure:tool==="ruler"?deg(a,b)+"°":undefined,
     }]);
-    if(tool==="pen"&&shape){
+    if(tool==="pen"){
       setPending(point);
-      setInfo("Painted on the ball surface. Click to extend, drag to rotate.");
+      setInfo("Surface stroke added. Click again to continue, drag the globe to rotate.");
     }else{
       setPending(null);
-      setInfo("Surface line drawn. Double-click a colored endpoint to edit or extend.");
+      setInfo("Line follows the ball skin. Double-click a handle to adjust it.");
     }
-  },[edit,tool,pending,shape,view,placement,color,width,snapshot,moveEndpoint]);
-  const normalized=(e:ReactPointerEvent<HTMLElement>):XY=>{
-    const rect=e.currentTarget.getBoundingClientRect();
-    return [(e.clientX-rect.left)/Math.max(1,rect.width),(e.clientY-rect.top)/Math.max(1,rect.height)];
+  },[edit,tool,shape,pending,pendingVertices,view,color,width,snapshot,moveEndpoint]);
+
+  // All pointer positions are relative to the SAME classroom stage, in CSS pixels.
+  // Camera raycasting, SVG ink, hit-testing and eraser visuals share this frame.
+  const stageRect=()=>stageRef.current?.getBoundingClientRect()??null;
+  const pixelFromClient=(clientX:number,clientY:number):XY=>{
+    const rect=stageRect();return rect?[clientX-rect.left,clientY-rect.top]:[0,0];
   };
-  const pixels=(e:ReactPointerEvent<HTMLElement>):XY=>{
-    const r=e.currentTarget.getBoundingClientRect();
-    return [e.clientX-r.left,e.clientY-r.top];
-  };
-  const sphereAt=(e:ReactPointerEvent<HTMLElement>):Vec|null=>{
+  const normalizedFromPixel=(p:XY):XY=>[p[0]/stageSize[0],p[1]/stageSize[1]];
+  const sphereFromPixel=(p:XY):Vec|null=>{
     if(!cameraRef.current)return null;
-    const r=e.currentTarget.getBoundingClientRect();
-    const p=pixels(e);
-    return hitSphere(p,cameraRef.current,r.width,r.height);
+    return hitSphere(p,cameraRef.current,stageSize[0],stageSize[1]);
   };
-  const eraseAt=useCallback((p:XY,rect:DOMRect,partial:boolean)=>{
-    const camera=cameraRef.current;
-    const w=rect.width,h=rect.height;
+  const eraseAt=useCallback((p:XY,partial:boolean)=>{
+    const camera=cameraRef.current,w=stageSize[0],h=stageSize[1];
     if(!camera)return;
     if(partial){
-      setMarks(old=>old.flatMap(mark=>cutMark(mark,p,camera,w,h,view,showSphere,17)));
-      setStrokes(old=>old.flatMap(stroke=>cutInk(stroke,p,w,h,17)));
+      setMarks(old=>old.flatMap(mark=>cutMark(mark,p,camera,w,h,view,showSphere,16)));
+      setStrokes(old=>old.flatMap(stroke=>cutInk(stroke,p,w,h,16)));
       return;
     }
-    let nearest=17;
+    let nearest=18;
     let selected:{id:string;kind:"mark"|"ink"}|null=null;
     for(const mark of marks){
       const distance=markHit(mark,p,camera,w,h,view,showSphere);
@@ -371,85 +411,174 @@ export function ClassroomApp(){
       const distance=inkHit(stroke,p,w,h);
       if(distance<nearest){nearest=distance;selected={id:stroke.id,kind:"ink"};}
     }
-    if(!selected){setInfo("No drawn line under the eraser.");return;}
+    if(!selected){setInfo("Eraser: no teacher-drawn line at this pointer position.");return;}
     if(selected.kind==="mark")setMarks(old=>old.filter(x=>x.id!==selected!.id));
     else setStrokes(old=>old.filter(x=>x.id!==selected!.id));
-    setInfo("Selected teacher-drawn line erased. Original great circles stay untouched.");
-  },[marks,strokes,view,showSphere]);
-  const screenDown=(e:ReactPointerEvent<HTMLElement>)=>{
-    if(e.button!==0||gesture.current)return;
-    const kind=edit?"edit":tool==="eraser"?"erase":
-      !shape&&tool==="pen"?"screen":!shape&&tool==="line"?"free-line":null;
-    if(!kind)return;
-    e.stopPropagation();e.preventDefault();
-    e.currentTarget.setPointerCapture(e.pointerId);
-    const p=pixels(e);
-    gesture.current={pointer:e.pointerId,kind,x:p[0],y:p[1],dragged:false};
-    if(kind==="edit"||kind==="erase"||kind==="screen")snapshot();
-    if(kind==="screen"){
-      setDrawing({id:makeId(),points:[normalized(e)],color,width});
+    setInfo("Erased exactly the selected teacher-drawn line; astronomy circles remain.");
+  },[marks,strokes,stageSize,view,showSphere]);
+
+  const addFreePoint=(point:XY)=>{
+    const px=(pos:XY)=>[pos[0]*stageSize[0],pos[1]*stageSize[1]] as XY;
+    if(tool==="line"||tool==="ruler"){
+      if(!pendingScreen){setPendingScreen(point);setInfo("Point 1 set. Click point 2 for a straight line.");return;}
+      snapshot();
+      const a=pendingScreen,b=point;
+      const count=Math.max(2,Math.ceil(dist2(px(a),px(b))/5));
+      const pts=Array.from({length:count},(_,i):XY=>[
+        a[0]+(b[0]-a[0])*i/(count-1),
+        a[1]+(b[1]-a[1])*i/(count-1),
+      ]);
+      const measure=tool==="ruler"?{
+        x:(a[0]+b[0])/2,y:(a[1]+b[1])/2,
+        label:(dist2(px(a),px(b))/17.5).toFixed(1)+" diagram cm",
+      }:undefined;
+      setStrokes(old=>[...old,{id:makeId(),color,width,points:pts,...(measure?{measure}:{})}]);
+      setPendingScreen(null);
+      setInfo(tool==="line"?"A straight line was drawn, independent of the sphere.":"Ruler: measured a straight diagram-space distance.");
+      return;
     }
-    if(kind==="erase")setEraserCursor(normalized(e));
+    if(tool==="triangle"||tool==="protractor"){
+      const newPoints=[...pendingScreenVertices,point];
+      if(newPoints.length<3){
+        setPendingScreenVertices(newPoints);
+        setInfo("Point "+newPoints.length+" saved. Select point "+(newPoints.length+1)+".");
+        return;
+      }
+      const [a,b,c]=newPoints as [XY,XY,XY];
+      const outline=tool==="triangle"?[a,b,c,a]:[b,a,c];
+      // Dense segments ensure precise partial erasing, even on large displays.
+      const points:XY[]=[];
+      for(let i=1;i<outline.length;i++){
+        const first=outline[i-1]!,last=outline[i]!;
+        const steps=Math.max(2,Math.ceil(dist2(px(first),px(last))/5));
+        for(let j=0;j<steps;j++)points.push([
+          first[0]+(last[0]-first[0])*j/(steps-1),
+          first[1]+(last[1]-first[1])*j/(steps-1),
+        ]);
+      }
+      const measure=tool==="protractor"?{x:a[0],y:a[1],label:planarAngle(b,a,c).toFixed(1)+"°"}:undefined;
+      snapshot();
+      setStrokes(old=>[...old,{id:makeId(),points,color,width,...(measure?{measure}:{})}]);
+      setPendingScreenVertices([]);
+      setInfo(tool==="triangle"?"Straight triangle completed.":"Measured angle: "+planarAngle(b,a,c).toFixed(1)+"°");
+    }
+  };
+  const screenDown=(e:ReactPointerEvent<HTMLElement>)=>{
+    if((e.target as Element).closest(".classroom-instrument"))return;
+    if(!e.isPrimary){gesture.current=null;return;}
+    if(e.button!==0||gesture.current)return;
+    const kind:Gesture["kind"]|null=edit?"edit":
+      tool==="eraser"?"erase":
+      !shape&&tool==="pen"?"screen":
+      !shape&&tool==="line"?"free-line":
+      !shape&&(tool==="ruler"||tool==="triangle"||tool==="protractor")?"free-multi":
+      shape&&tool!=="orbit"?"sphere":null;
+    if(!kind)return;
+    const p=pixelFromClient(e.clientX,e.clientY);
+    gesture.current={pointer:e.pointerId,kind,x:p[0],y:p[1],startX:p[0],startY:p[1],dragged:false};
+    if(kind==="sphere")return; // Preserve OrbitControls' own pointer and pinch handling.
+    e.preventDefault();e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    if(kind==="edit"||kind==="screen"||kind==="erase")snapshot();
+    if(kind==="screen")setDrawing({id:makeId(),points:[normalizedFromPixel(p)],color,width});
+    if(kind==="erase")setEraserCursor(normalizedFromPixel(p));
   };
   const screenMove=(e:ReactPointerEvent<HTMLElement>)=>{
-    if(tool==="eraser")setEraserCursor(normalized(e));
+    const p=pixelFromClient(e.clientX,e.clientY);
+    if(tool==="eraser")setEraserCursor(normalizedFromPixel(p));
     const g=gesture.current;
     if(!g||g.pointer!==e.pointerId)return;
+    const movement=Math.hypot(p[0]-g.startX,p[1]-g.startY);
+    if(movement>6)g.dragged=true;
+    if(g.kind==="sphere")return;
     e.stopPropagation();
-    const p=pixels(e),r=e.currentTarget.getBoundingClientRect();
-    const moved=Math.hypot(p[0]-g.x,p[1]-g.y)>5;
-    if(moved)g.dragged=true;
     if(g.kind==="screen"){
-      const point=normalized(e);
-      setDrawing(old=>old?{...old,points:[...old.points,point]}:null);
+      const previous:XY=[g.x,g.y],steps=Math.max(1,Math.ceil(dist2(previous,p)/4));
+      setDrawing(old=>{
+        if(!old)return null;
+        const extension=Array.from({length:steps},(_,i)=>normalizedFromPixel([
+          previous[0]+(p[0]-previous[0])*(i+1)/steps,
+          previous[1]+(p[1]-previous[1])*(i+1)/steps,
+        ]));
+        return {...old,points:[...old.points,...extension]};
+      });
+      g.x=p[0];g.y=p[1];
     }else if(g.kind==="erase"&&g.dragged){
-      const previous:XY=[g.x,g.y],spacing=Math.max(1,Math.ceil(dist2(previous,p)/9));
-      for(let i=1;i<=spacing;i++){
-        const test:XY=[previous[0]+(p[0]-previous[0])*i/spacing,previous[1]+(p[1]-previous[1])*i/spacing];
-        eraseAt(test,r,true);
+      const previous:XY=[g.x,g.y],steps=Math.max(1,Math.ceil(dist2(previous,p)/8));
+      for(let i=1;i<=steps;i++){
+        const brush:XY=[
+          previous[0]+(p[0]-previous[0])*i/steps,
+          previous[1]+(p[1]-previous[1])*i/steps,
+        ];
+        eraseAt(brush,true);
       }
       g.x=p[0];g.y=p[1];
-      setInfo("Partial eraser: touching only user-drawn marks.");
+      setInfo("Erasing only the area beneath the 16px brush.");
     }else if(g.kind==="edit"&&g.dragged&&edit){
-      const point=sphereAt(e);
+      const point=sphereFromPixel(p);
       if(point)moveEndpoint(edit,point);
     }
   };
   const screenUp=(e:ReactPointerEvent<HTMLElement>)=>{
     const g=gesture.current;
     if(!g||g.pointer!==e.pointerId)return;
+    const p=pixelFromClient(e.clientX,e.clientY);
+    if(g.kind==="sphere"){
+      if(!g.dragged&&!edit){
+        const point=sphereFromPixel(p);
+        if(point)onPoint(point);
+      }
+      gesture.current=null;
+      return;
+    }
     e.stopPropagation();
     if(g.kind==="screen"){
       if(drawing){
-        const line={...drawing,points:drawing.points.length===1?[drawing.points[0]!,drawing.points[0]!]:drawing.points};
-        setStrokes(old=>[...old,line]);
+        const points=drawing.points.length===1?[drawing.points[0]!,drawing.points[0]!]:drawing.points;
+        setStrokes(old=>[...old,{...drawing,points}]);
       }
       setDrawing(null);
     }else if(g.kind==="erase"){
-      if(!g.dragged)eraseAt(pixels(e),e.currentTarget.getBoundingClientRect(),false);
-    }else if(g.kind==="free-line"&&!g.dragged){
-      const point=normalized(e);
-      if(!pendingScreen){setPendingScreen(point);setInfo("First free point saved. Click a second location.");}
-      else{
-        const id=makeId();
-        const points=Array.from({length:100},(_,i):XY=>[
-          pendingScreen[0]+(point[0]-pendingScreen[0])*i/99,
-          pendingScreen[1]+(point[1]-pendingScreen[1])*i/99]);
-        snapshot();setStrokes(old=>[...old,{id,color,width,points}]);
-        setPendingScreen(null);
-      }
+      if(!g.dragged)eraseAt(p,false);
+    }else if(g.kind==="free-line"||g.kind==="free-multi"){
+      if(!g.dragged)addFreePoint(normalizedFromPixel(p));
     }else if(g.kind==="edit"&&edit){
-      const point=sphereAt(e);
+      const point=sphereFromPixel(p);
       if(point)moveEndpoint(edit,point);
       setEdit(null);
-      setInfo("Endpoint moved. Double-click another endpoint to edit.");
+      setInfo("Endpoint moved to exact pointer location.");
     }
     gesture.current=null;
     if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);
   };
+  const screenDoubleClick=(e:ReactMouseEvent<HTMLElement>)=>{
+    if(!cameraRef.current||tool==="eraser")return;
+    const p=pixelFromClient(e.clientX,e.clientY);
+    let best:{id:string;index:0|1;distance:number}|null=null;
+    for(const mark of marks){
+      if(!mark.anchorA||!mark.anchorB)continue;
+      for(const [index,anchor] of ([mark.anchorA,mark.anchorB] as const).entries()){
+        if(!visiblePoint(anchor,cameraRef.current,view,showSphere))continue;
+        const pos=projectPoint(anchor,cameraRef.current,stageSize[0],stageSize[1]);
+        if(!pos)continue;
+        const distance=dist2(pos,p);
+        if(distance<22&&(!best||distance<best.distance))best={id:mark.id,index:index as 0|1,distance};
+      }
+    }
+    if(best){
+      e.stopPropagation();
+      onBeginEdit(best.id,best.index);
+      setPending(null);
+      setPendingScreen(null);
+      setPendingVertices([]);
+      setPendingScreenVertices([]);
+    }
+  };
   const undo=()=>{
     if(edit){setEdit(null);return;}
-    if(pending||pendingScreen){setPending(null);setPendingScreen(null);return;}
+    if(pending||pendingScreen||pendingVertices.length||pendingScreenVertices.length){
+      setPending(null);setPendingScreen(null);setPendingVertices([]);setPendingScreenVertices([]);return;
+    }
     const previous=history[history.length-1];
     if(!previous)return;
     setMarks(previous.marks);setStrokes(previous.strokes);
@@ -457,9 +586,9 @@ export function ClassroomApp(){
     setInfo("Undo successful.");
   };
   const clear=()=>{
-    if(!marks.length&&!strokes.length&&!pending&&!pendingScreen)return;
+    if(!marks.length&&!strokes.length&&!pending&&!pendingScreen&&!pendingVertices.length&&!pendingScreenVertices.length)return;
     if(!window.confirm("Clear all classroom drawings?"))return;
-    snapshot();setMarks([]);setStrokes([]);setPending(null);setPendingScreen(null);setDrawing(null);setEdit(null);
+    snapshot();setMarks([]);setStrokes([]);setPending(null);setPendingScreen(null);setPendingVertices([]);setPendingScreenVertices([]);setDrawing(null);setEdit(null);
     setInfo("Teacher drawings cleared; the original astronomical circles remain.");
   };
 
@@ -474,8 +603,10 @@ export function ClassroomApp(){
       </div>
       <button className="classroom-fullscreen" type="button" title="Fullscreen" onClick={()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}><Maximize2 size={17}/></button>
     </header>
-    <section className="classroom-stage" aria-label="Interactive celestial sphere"
-      onPointerDownCapture={screenDown} onPointerMoveCapture={screenMove} onPointerUpCapture={screenUp} onPointerCancelCapture={screenUp} onPointerLeave={()=>setEraserCursor(null)}>
+    <section ref={stageRef} className="classroom-stage" aria-label="Interactive celestial sphere"
+      onPointerDownCapture={screenDown} onPointerMoveCapture={screenMove} onPointerUpCapture={screenUp}
+      onPointerCancelCapture={screenUp} onDoubleClickCapture={screenDoubleClick}
+      onPointerLeave={()=>setEraserCursor(null)}>
       <Canvas className="classroom-canvas" dpr={[1,1.7]}
         gl={{alpha:true,antialias:true}} camera={{position:[0,0,3.25],fov:45,near:0.002,far:80}}
         onCreated={({camera})=>{cameraRef.current=camera;}}>
@@ -483,16 +614,25 @@ export function ClassroomApp(){
           marks={marks} pending={pending} tool={tool} color={color} view={view} cmd={cmd}
           showSphere={showSphere} edit={edit} onPoint={onPoint} onBeginEdit={onBeginEdit}/>
       </Canvas>
-      <svg className="classroom-ink-layer" viewBox="0 0 1000 1000" preserveAspectRatio="none"
+      <svg className="classroom-ink-layer" width="100%" height="100%"
+        viewBox={"0 0 "+stageSize[0]+" "+stageSize[1]} preserveAspectRatio="none"
         aria-label="Freehand annotation surface">
-        {[...strokes,...(drawing?[drawing]:[])].map(s=><path key={s.id} d={inkPath(s.points)}
-          fill="none" stroke={s.color} strokeWidth={s.width*1.8}
-          strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke"/>)}
-        {pendingScreen&&<circle cx={pendingScreen[0]*1000} cy={pendingScreen[1]*1000} r={7}
-          stroke={color} strokeWidth={2} fill="none" vectorEffect="non-scaling-stroke"/>}
-        {tool==="eraser"&&eraserCursor&&<circle cx={eraserCursor[0]*1000} cy={eraserCursor[1]*1000}
-          r={15} fill="rgba(255,255,255,.10)" stroke="#fff2c2" strokeWidth={2} vectorEffect="non-scaling-stroke"/>}
+        {[...strokes,...(drawing?[drawing]:[])].map(line=><g key={line.id}>
+          <path d={inkPath(line.points,stageSize)} fill="none" stroke={line.color}
+            strokeWidth={line.width*1.8} strokeLinecap="round" strokeLinejoin="round"/>
+          {line.measure&&<text x={line.measure.x*stageSize[0]} y={line.measure.y*stageSize[1]-11}
+            fill="#fff1ae" fontSize={14} fontWeight="700" textAnchor="middle">{line.measure.label}</text>}
+        </g>)}
+        {pendingScreen&&<circle cx={pendingScreen[0]*stageSize[0]} cy={pendingScreen[1]*stageSize[1]} r={7}
+          stroke={color} strokeWidth={2} fill="none"/>}
+        {pendingScreenVertices.map((p,i)=><circle key={i} cx={p[0]*stageSize[0]} cy={p[1]*stageSize[1]}
+          r={6} fill={color} stroke="#ffffff" strokeWidth={1.5}/>)}
+        {tool==="eraser"&&eraserCursor&&<circle cx={eraserCursor[0]*stageSize[0]}
+          cy={eraserCursor[1]*stageSize[1]} r={16} fill="rgba(255,255,255,.12)"
+          stroke="#fff2c2" strokeWidth={2}/>}
       </svg>
+      {rulerVisible&&<ClassroomInstrument type="ruler" onClose={()=>setRulerVisible(false)}/>}
+      {protractorVisible&&<ClassroomInstrument type="protractor" onClose={()=>setProtractorVisible(false)}/>}
     </section>
     <aside className="classroom-layers classroom-glass" aria-label="Great circle controls">
       <div className="classroom-panel-head"><div><span className="classroom-overline">GEOMETRY</span><h2 dir="rtl">الدَّوَائِرُ الْعِظَامُ</h2><p>10 Great Circles</p></div>
@@ -513,8 +653,22 @@ export function ClassroomApp(){
         <ToolButton active={tool==="orbit"} onClick={()=>chooseTool("orbit")} label="Rotate the sphere"><MousePointer2 size={19}/>Orbit</ToolButton>
         <ToolButton active={tool==="pen"} onClick={()=>chooseTool("pen")} label="Freehand pen"><PenLine size={19}/>Pen</ToolButton>
         <ToolButton active={tool==="line"} onClick={()=>chooseTool("line")} label="Straight point-to-point line"><Slash size={19}/>Line</ToolButton>
-        <ToolButton active={tool==="ruler"} onClick={()=>chooseTool("ruler")} label="Angular scale"><Ruler size={19}/>Scale</ToolButton>
+        <ToolButton active={tool==="ruler"} onClick={()=>chooseTool("ruler")} label="Scale"><Ruler size={19}/>Scale</ToolButton>
+        <ToolButton active={tool==="triangle"} onClick={()=>chooseTool("triangle")} label="Three-point triangle"><Triangle size={19}/>Triangle</ToolButton>
+        <ToolButton active={tool==="protractor"} onClick={()=>chooseTool("protractor")} label="Three-point angle measurement"><DraftingCompass size={19}/>Angle</ToolButton>
         <ToolButton active={tool==="eraser"} onClick={()=>chooseTool("eraser")} label="Click to erase a line; drag to erase a portion"><Eraser size={19}/>Eraser</ToolButton>
+      </div>
+      <div className="classroom-tool-section classroom-instrument-controls">
+        <div className="classroom-section-title"><Ruler size={15}/> Teaching instruments</div>
+        <div className="classroom-instrument-options">
+          <button className={rulerVisible?"on":""} onClick={()=>setRulerVisible(x=>!x)}>
+            <Ruler size={16}/> {rulerVisible?"Hide ruler":"Show ruler"}
+          </button>
+          <button className={protractorVisible?"on":""} onClick={()=>setProtractorVisible(x=>!x)}>
+            <DraftingCompass size={16}/> {protractorVisible?"Hide protractor":"Show protractor"}
+          </button>
+        </div>
+        <p className="classroom-hint">Drag the grip to move; drag Rotate to turn. The ruler uses diagram units, not real-world kilometres.</p>
       </div>
       <div className="classroom-tool-section classroom-shape-toggle">
         <button className={"classroom-shape-button"+(shape?" on":"")} onClick={()=>{setShape(old=>!old);setPending(null);}}>
@@ -574,9 +728,9 @@ export function ClassroomApp(){
           <strong dir="rtl">{s.ar}</strong><small>{s.en}</small></button>)}</div>
       </div>
       <div className="classroom-actions">
-        <button onClick={undo} disabled={!edit&&!pending&&!pendingScreen&&!history.length}><Undo2 size={15}/> Undo</button>
-        <button onClick={clear} disabled={!pending&&!pendingScreen&&marks.length===0&&strokes.length===0}><Eraser size={15}/> Clear</button>
-        <button onClick={()=>{setMarks([]);setStrokes([]);setHistory([]);setPending(null);setPendingScreen(null);setEdit(null);setShowSphere(true);setVisible(DEFAULT_VISIBLE);setSeasons(SEASONS.map(s=>s.longitude));setZenith(true);setNadir(true);setDirections(true);setView("outside");setCmd(old=>({number:old.number+1,dir:[0,0,1]}));setShape(true);chooseTool("orbit");}}><RotateCcw size={15}/> Reset</button>
+        <button onClick={undo} disabled={!edit&&!pending&&!pendingScreen&&!pendingVertices.length&&!pendingScreenVertices.length&&!history.length}><Undo2 size={15}/> Undo</button>
+        <button onClick={clear} disabled={!pending&&!pendingScreen&&!pendingVertices.length&&!pendingScreenVertices.length&&marks.length===0&&strokes.length===0}><Eraser size={15}/> Clear</button>
+        <button onClick={()=>{setMarks([]);setStrokes([]);setHistory([]);setPending(null);setPendingScreen(null);setPendingVertices([]);setPendingScreenVertices([]);setEdit(null);setShowSphere(true);setRulerVisible(false);setProtractorVisible(false);setVisible(DEFAULT_VISIBLE);setSeasons(SEASONS.map(s=>s.longitude));setZenith(true);setNadir(true);setDirections(true);setView("outside");setCmd(old=>({number:old.number+1,dir:[0,0,1]}));setShape(true);chooseTool("orbit");}}><RotateCcw size={15}/> Reset</button>
       </div>
     </aside>
     <div className="classroom-status classroom-glass" role="status"><span className="classroom-status-dot"/><span>{info}</span>
