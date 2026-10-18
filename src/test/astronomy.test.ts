@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { computeSky } from "@/lib/astronomy/sky";
-import { localFrame, localToAltAz, angleDeg, risingAmplitude, eclipticToRaDec, raDecToEcliptic, hourAngleToLocal } from "@/lib/astronomy/math";
+import { localFrame, localToAltAz, angleDeg, risingAmplitude, eclipticToRaDec, raDecToEcliptic, hourAngleToLocal, ZENITH, NADIR } from "@/lib/astronomy/math";
 import { buildLayer } from "@/lib/astronomy/layerGeometry";
 import { LAYERS } from "@/data/layers";
 
@@ -13,6 +13,15 @@ describe("observer frame", () => {
       expect(localToAltAz(P).alt).toBeCloseTo(lat, 6);
       if (lat > 0) expect(P.z).toBeLessThan(0);
     }
+  });
+  it("equator passes through zenith and nadir at latitude zero", () => {
+    const s = computeSky(date, 0, 75.8);
+    expect(Math.abs(s.P.dot(ZENITH))).toBeLessThan(1e-9);
+    expect(Math.abs(s.P.dot(NADIR))).toBeLessThan(1e-9);
+    const offEquator = computeSky(date, 11, 75.8);
+    expect(Math.abs(offEquator.P.dot(ZENITH))).toBeGreaterThan(0.18);
+    expect(Math.abs(s.sun.dot(s.K))).toBeLessThan(1e-6);
+    expect(buildLayer("01_equator", s).lines.length).toBeGreaterThan(0);
   });
   it("east point is hour angle -90°", () => {
     const v = hourAngleToLocal(-90, 0, 30);

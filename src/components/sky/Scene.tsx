@@ -51,7 +51,7 @@ function StarField({ count }: { count: number }) {
   );
 }
 
-function Label({ pos, text, color, sub, size = "sm" }: { pos: THREE.Vector3; text: string; color?: string; sub?: string | undefined; size?: "sm" | "lg" }) {
+function Label({ pos, text, color, sub, size = "sm", seasonal = false }: { pos: THREE.Vector3; text: string; color?: string; sub?: string | undefined; size?: "sm" | "lg"; seasonal?: boolean }) {
   const element = useRef<HTMLDivElement>(null);
   const inside = useSky((state) => state.view === "inside");
   const xray = useSky((state) => state.xray);
@@ -81,7 +81,7 @@ function Label({ pos, text, color, sub, size = "sm" }: { pos: THREE.Vector3; tex
   });
   return (
     <Html position={pos} center zIndexRange={[10, 0]} style={{ pointerEvents: "none" }}>
-      <div ref={element} className={`sky-label ${size === "lg" ? "sky-label-lg" : ""}`} style={{ color }}>
+      <div ref={element} className={`sky-label ${size === "lg" ? "sky-label-lg" : ""} ${seasonal ? "sky-label-season" : ""}`} style={{ color }}>
         <span>{text}</span>
         {sub && <small>{sub}</small>}
       </div>
@@ -285,8 +285,17 @@ export function Scene() {
         {t.labels && <><Label pos={sky.P.clone().multiplyScalar(1.12)} text="القطب الشمالي" sub="North celestial pole" color="#f5c542" /><Label pos={sky.S.clone().multiplyScalar(1.12)} text="القطب الجنوبي" sub="South celestial pole" color="#f5c542" /></>}</>}
       {t.eclPoles && <><Dot pos={sky.K} color="#ff5d5d" /><Dot pos={sky.K.clone().negate()} color="#ff5d5d" />
         {t.labels && <><Label pos={sky.K.clone().multiplyScalar(1.12)} text="قطب البروج" sub="N ecliptic pole" color="#ff5d5d" /><Label pos={sky.K.clone().negate().multiplyScalar(1.12)} text="قطب البروج" sub="S ecliptic pole" color="#ff5d5d" /></>}</>}
-      {t.markers && ([[0, "♈ Vernal equinox"], [90, "♋ June solstice"], [180, "♎ Autumn equinox"], [270, "♑ Dec solstice"]] as const).map(([lon, n]) => (
-        <group key={lon}><Dot pos={sky.eclToLocal(lon)} color="#ffb4b4" r={0.018} />{t.labels && <Label pos={sky.eclToLocal(lon).multiplyScalar(1.07)} text={n} color="#ffb4b4" />}</group>
+      {t.markers && ([
+        [0, "الاعتدال الربيعي", "Vernal Equinox"],
+        [90, "الانقلاب الصيفي", "June Solstice"],
+        [180, "الاعتدال الخريفي", "Autumnal Equinox"],
+        [270, "الانقلاب الشتوي", "December Solstice"],
+      ] as const).map(([lon, ar, en]) => (
+        <group key={lon}>
+          <Dot pos={sky.eclToLocal(lon)} color="#ffb4b4" r={0.018} />
+          {t.labels && <Label pos={sky.eclToLocal(lon).multiplyScalar(1.08)}
+            text={ar} sub={en} color="#ffb4b4" seasonal />}
+        </group>
       ))}
       {t.dailySun && <Line points={dailySun} color="#ffd27a" lineWidth={1.4} dashed dashSize={0.05} gapSize={0.03} />}
       {t.sun && (

@@ -41,7 +41,7 @@ export const useSky = create<State>()(
       opacity: Object.fromEntries(LAYERS.map((l) => [l.id, 1])),
       toggles: { human: true, shell: true, graticule: false, poles: true, eclPoles: true, cardinals: true, zenith: true, sun: true, dailySun: false, moon: true, target: true, stars: true, axes: false, labels: true, sight: false, markers: true },
       selected: null, hovered: null,
-      lat: 11, lon: 75.8,
+      lat: 0, lon: 75.8,
       simTime: Date.now(), timePlaying: false, timeMult: 1,
       autoOrbit: true, orbitSpeed: 0.4,
       quality: "medium", lang: "en", view: "outside",
@@ -61,6 +61,13 @@ export const useSky = create<State>()(
     }),
     {
       name: "tashrihul-aflak-3d",
+      version: 2,
+      migrate: (persisted, version) => {
+        if (version < 2 && persisted && typeof persisted === "object") {
+          return { ...(persisted as Partial<State>), lat: 0 } as State;
+        }
+        return persisted as State;
+      },
       partialize: (s) => ({ visible: s.visible, custom: s.custom, opacity: s.opacity, toggles: s.toggles, lat: s.lat, lon: s.lon, autoOrbit: s.autoOrbit, orbitSpeed: s.orbitSpeed, quality: s.quality, lang: s.lang, xray: s.xray }),
     },
   ),

@@ -215,11 +215,18 @@ function Location() {
       </div>
       <div className="presets">
         {LOCS.map(([n, a, o]) => <button key={n} className="chip" onClick={() => set({ lat: a, lon: o })}>{n}</button>)}
+        <button className="chip equator-align" title="At latitude zero the celestial equator passes through Zenith and Nadir"
+          onClick={() => set({ lat: 0 })}>Align مُعَدِّلُ النَّهَارِ · φ 0°</button>
         <button className="chip" onClick={() => {
           if (!navigator.geolocation) return setMsg("Geolocation not supported");
           navigator.geolocation.getCurrentPosition((p) => { set({ lat: +p.coords.latitude.toFixed(3), lon: +p.coords.longitude.toFixed(3) }); setMsg(""); }, () => setMsg("Permission denied"));
         }}>Use my location</button>
       </div>
+      <p className="equator-note muted small">
+        {Math.abs(lat) < 0.00001
+          ? "Equatorial alignment: مُعَدِّلُ النَّهَارِ passes through Zenith and Nadir."
+          : "At this latitude, the meridian passes through Zenith and Nadir; the celestial equator changes with observer latitude."}
+      </p>
       {msg && <p className="muted small">{msg}</p>}
     </section>
   );

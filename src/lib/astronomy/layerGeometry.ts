@@ -32,7 +32,7 @@ function splitByHorizon(pts: THREE.Vector3[], above: boolean) {
 export function buildLayer(id: string, s: SkyState): LayerGeom {
   const { P, K, T, sun, Q } = s;
   switch (id) {
-    case "01_equator": return { lines: [greatCircle(P)], label: Q.clone(), measure: "δ = 0°" };
+    case "01_equator": return { lines: [greatCircle(P)], label: Q.clone().addScaledVector(EAST, 0.46).normalize(), measure: "δ = 0°" };
     case "02_ecliptic": return { lines: [greatCircle(K)], label: s.eclToLocal(45), measure: `ε = ${fmt(s.eps)}` };
     case "03_four_poles": return { lines: [greatCircle(planeNormal(P, K))], label: P.clone().add(K).normalize(), measure: `P–K = ${fmt(angleDeg(P, K))}` };
     case "04_declination": return { lines: [greatCircle(planeNormal(P, T))], label: T.clone(), measure: "through P & target" };
