@@ -4,6 +4,7 @@ import { Html, Line, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import type { OrbitControls as OrbitImpl } from "three-stdlib";
 import { useSky } from "@/store/useSky";
+import { FloatingSun, FloatingMoon } from "./CelestialBodies";
 import { LAYERS } from "@/data/layers";
 import { computeSky } from "@/lib/astronomy/sky";
 import { buildLayer } from "@/lib/astronomy/layerGeometry";
@@ -257,13 +258,12 @@ export function Scene() {
         <group>
           <Line points={sunTrail} color="#ffcf5a" lineWidth={4} transparent opacity={0.45} />
           <Line points={sunAhead} color="#fff3c4" lineWidth={2} />
-          <mesh position={sky.sun}><sphereGeometry args={[0.055, 24, 24]} /><meshBasicMaterial color="#ffd54a" toneMapped={false} /></mesh>
-          <mesh position={sky.sun}><sphereGeometry args={[0.09, 24, 24]} /><meshBasicMaterial color="#ffb020" transparent opacity={0.25} depthWrite={false} /></mesh>
-          {t.labels && <Label pos={sky.sun.clone().multiplyScalar(1.13)} text="الشمس" sub={`Sun · λ ${sky.sunLon.toFixed(1)}°`} color="#ffd54a" />}
+          <FloatingSun direction={sky.sun} />
+          {t.labels && <Label pos={sky.sun.clone().multiplyScalar(1.27)} text="الشمس" sub={`Sun · λ ${sky.sunLon.toFixed(1)}°`} color="#ffd54a" />}
         </group>
       )}
-      {t.moon && sky.moon && <><mesh position={sky.moon}><sphereGeometry args={[0.035, 20, 20]} /><meshStandardMaterial color="#d9dde6" /></mesh>
-        {t.labels && <Label pos={sky.moon.clone().multiplyScalar(1.1)} text="القمر" sub="Moon" color="#d9dde6" />}</>}
+      {t.moon && sky.moon && <><FloatingMoon direction={sky.moon} />
+        {t.labels && <Label pos={sky.moon.clone().multiplyScalar(1.25)} text="القمر" sub="Moon" color="#d9dde6" />}</>}
       {t.target && <><Dot pos={sky.T} color="#7dd3fc" r={0.028} />{t.labels && <Label pos={sky.T.clone().multiplyScalar(1.1)} text="الدبران" sub="Aldebaran (target)" color="#7dd3fc" />}</>}
     </>
   );
