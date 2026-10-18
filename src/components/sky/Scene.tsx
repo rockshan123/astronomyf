@@ -52,9 +52,36 @@ function StarField({ count }: { count: number }) {
 }
 
 function Label({ pos, text, color, sub, size = "sm" }: { pos: THREE.Vector3; text: string; color?: string; sub?: string | undefined; size?: "sm" | "lg" }) {
+  const element = useRef<HTMLDivElement>(null);
+  const inside = useSky((state) => state.view === "inside");
+  const xray = useSky((state) => state.xray);
+  const direction = useMemo(() => new THREE.Vector3(), []);
+  // HTML labels live outside the WebGL depth buffer. Occlude against the
+  // 0.995-radius depth sphere using a camera-to-label segment test.
+  useFrame(({ camera }) => {
+    if (!element.current) return;
+    if (inside || xray) {
+      element.current.style.visibility = "visible";
+      element.current.style.opacity = "1";
+      return;
+    }
+    const cameraPosition = camera.position;
+    direction.copy(pos).sub(cameraPosition);
+    const a = direction.lengthSq();
+    const b = 2 * cameraPosition.dot(direction);
+    const c = cameraPosition.lengthSq() - 0.995 * 0.995;
+    const disc = b * b - 4 * a * c;
+    let hidden = false;
+    if (a > 0.000001 && c > 0 && disc >= 0) {
+      const near = (-b - Math.sqrt(disc)) / (2 * a);
+      hidden = near > 0.0001 && near < 0.999;
+    }
+    element.current.style.visibility = hidden ? "hidden" : "visible";
+    element.current.style.opacity = hidden ? "0" : "1";
+  });
   return (
     <Html position={pos} center zIndexRange={[10, 0]} style={{ pointerEvents: "none" }}>
-      <div className={`sky-label ${size === "lg" ? "sky-label-lg" : ""}`} style={{ color }}>
+      <div ref={element} className={`sky-label ${size === "lg" ? "sky-label-lg" : ""}`} style={{ color }}>
         <span>{text}</span>
         {sub && <small>{sub}</small>}
       </div>
@@ -71,20 +98,24 @@ function Dot({ pos, color, r = 0.025 }: { pos: THREE.Vector3; color: string; r?:
   );
 }
 
-/** Line drawn solid where in front of the sphere, faint dashed where hidden. */
-function SkyLine({ pts, color, width, opacity, onClick, onOver, onOut, occlude }: {
-  pts: THREE.Vector3[]; color: string; width: number; opacity: number; occlude: boolean;
+/** Depth-tested surface arcs; far-side dashes only in optional X-Ray mode. */
+function SkyLine({ pts, color, width, opacity, onClick, onOver, onOut, occlude, xray }: {
+  pts: THREE.Vector3[]; color: string; width: number; opacity: number; occlude: boolean; xray: boolean;
   onClick?: () => void; onOver?: () => void; onOut?: () => void;
 }) {
   return (
     <>
       <Line points={pts} color={color} lineWidth={width} transparent opacity={opacity}
+        depthTest depthWrite={false}
         onClick={(e) => { e.stopPropagation(); onClick?.(); }}
         onPointerOver={(e) => { e.stopPropagation(); onOver?.(); }}
         onPointerOut={() => onOut?.()} />
-      {occlude && (
-        <Line points={pts} color={color} lineWidth={Math.max(1, width * 0.6)} transparent opacity={opacity * 0.3}
-          dashed dashSize={0.03} gapSize={0.03} depthTest={false} raycast={() => null} />
+      {occlude && xray && (
+        <Line points={pts} color={color} lineWidth={Math.max(0.8, width * 0.6)}
+          transparent opacity={Math.min(0.28, opacity * 0.25)}
+          dashed dashSize={0.04} gapSize={0.035}
+          depthTest depthFunc={THREE.GreaterDepth} depthWrite={false}
+          raycast={() => null} />
       )}
     </>
   );
@@ -133,10 +164,14 @@ function CameraRig() {
   });
 
   return (
-    <OrbitControls ref={controls as never} enablePan enableDamping autoRotateSpeed={speed}
+    <OrbitControls ref={controls as never} enableRotate enablePan={false} enableDamping dampingFactor={0.07}
+      autoRotateSpeed={speed} rotateSpeed={0.65} zoomSpeed={0.9}
+      minPolarAngle={0.015} maxPolarAngle={Math.PI - 0.015}
+      minAzimuthAngle={-Infinity} maxAzimuthAngle={Infinity}
       target={view === "inside" ? [0, 0.06, 0] : [0, 0, 0]}
-      minDistance={view === "inside" ? 0.01 : 1.4} maxDistance={view === "inside" ? 0.5 : 12}
-      onStart={() => (goal.current = null)} onEnd={() => (resumeAt.current = performance.now() + 4000)} />
+      minDistance={view === "inside" ? 0.025 : 1.4} maxDistance={view === "inside" ? 0.6 : 12}
+      onStart={() => { goal.current = null; resumeAt.current = performance.now() + 4000; }}
+      onEnd={() => (resumeAt.current = performance.now() + 4000)} />
   );
 }
 
@@ -190,7 +225,7 @@ export function Scene() {
       <CameraRig />
       {t.stars && <StarField count={lowQ ? 1500 : st.quality === "high" ? 6000 : 3500} />}
 
-      {/* depth occluder so hidden hemisphere arcs read as dashed */}
+      {/* Invisible depth-writing sphere hides the far hemisphere in normal mode. */}
       {occlude && (
         <mesh renderOrder={-1}>
           <sphereGeometry args={[0.995, 64, 64]} />
@@ -228,7 +263,7 @@ export function Scene() {
           <group key={l.id}>
             {g.reference && hot && <Line points={g.reference} color={l.color} lineWidth={0.8} transparent opacity={0.25} />}
             {g.lines.map((pts, i) => (
-              <SkyLine key={i} pts={pts} color={l.color} width={(isArc ? lineW * 1.8 : lineW) * (hot ? 1.8 : 1)} opacity={op} occlude={occlude}
+              <SkyLine key={i} pts={pts} color={l.color} width={(isArc ? lineW * 1.8 : lineW) * (hot ? 1.8 : 1)} opacity={op} occlude={occlude} xray={st.xray}
                 onClick={() => st.set({ selected: l.id })}
                 onOver={() => { st.set({ hovered: l.id }); document.body.style.cursor = "pointer"; }}
                 onOut={() => { st.set({ hovered: null }); document.body.style.cursor = ""; }} />
