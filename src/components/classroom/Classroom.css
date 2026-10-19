@@ -333,3 +333,115 @@
   .classroom-circle-name span{font-size:13px;line-height:1.35}
   .classroom-name-actions .classroom-tiny{font-size:9px}
 }
+
+/* Teaching instruments v2: transparent drawing area, only handles capture touches.
+   This allows the whiteboard pen to draw along a ruler edge, without intercepting ink. */
+.classroom-v2 .classroom-instrument{
+  pointer-events:none;
+  overflow:visible;
+  -webkit-user-select:none;
+  user-select:none;
+}
+.classroom-instrument .classroom-instrument-grip,
+.classroom-instrument .classroom-instrument-extend,
+.classroom-instrument .classroom-instrument-rotate,
+.classroom-instrument .classroom-instrument-footer button,
+.classroom-instrument .classroom-instrument-footer select,
+.classroom-instrument .classroom-protractor-arm,
+.classroom-instrument .classroom-instrument-discard{
+  pointer-events:auto;
+  touch-action:none;
+}
+.classroom-v2 .classroom-ruler-face{
+  position:relative;
+  background:linear-gradient(155deg,rgba(252,255,255,.64),rgba(148,215,253,.20));
+  border-bottom:1px solid rgba(52,111,167,.6);
+  border-top:1px solid rgba(52,111,167,.5);
+  overflow:visible;
+  pointer-events:none;
+}
+.classroom-v2 .classroom-ruler-ticks{pointer-events:none}
+.classroom-instrument-extend{
+  position:absolute;
+  z-index:15;
+  width:32px;
+  height:43px;
+  display:grid;
+  place-items:center;
+  cursor:ew-resize;
+  font-size:22px;
+  font-weight:700;
+  color:#096bb8;
+  border-radius:10px;
+  border:1px solid #8ecbf5;
+  background:linear-gradient(180deg,#f4fcff,#b0e1ff);
+  box-shadow:0 3px 12px rgba(28,91,151,.32);
+}
+.classroom-instrument-extend:hover,.classroom-instrument-extend:active{
+  color:#fff;background:#217bbd;
+}
+.classroom-instrument-footer select{
+  max-width:115px;
+  border-radius:7px;
+  padding:3px 5px;
+  background:rgba(251,255,255,.9);
+  border:1px solid rgba(77,142,197,.45);
+  color:#365f8b;
+  font-size:9px;
+}
+.classroom-ruler-sr{font-size:8px;color:#6486a8;display:block;padding:0 8px 5px}
+.classroom-v2 .classroom-instrument-protractor.advanced{
+  max-width:none;
+  height:auto;
+  background:rgba(245,252,255,.34);
+}
+.classroom-v2 .classroom-instrument-protractor.advanced .classroom-protractor-face{
+  pointer-events:none;
+  overflow:visible;
+}
+.classroom-protractor-arm{
+  position:absolute;
+  z-index:15;
+  width:23px;height:23px;
+  border:2px solid #fff;
+  border-radius:50%;
+  font-weight:800;
+  font-size:10px;
+  color:white;
+  display:grid;
+  place-items:center;
+  box-shadow:0 2px 10px rgba(0,0,0,.24);
+  cursor:grab;
+}
+.classroom-protractor-arm.a{background:#218fe4}
+.classroom-protractor-arm.b{background:#e65a80}
+.classroom-protractor-arm:active{cursor:grabbing}
+.classroom-v2 .classroom-instrument-footer.protractor-controls{
+  display:flex;
+  align-items:center;
+  gap:4px;
+  flex-wrap:wrap;
+}
+.classroom-v2 .classroom-instrument-footer.protractor-controls button{
+  color:#3573a5;
+  border:1px solid #b5d7ec;
+  background:rgba(249,254,255,.88);
+  padding:6px 9px;
+  border-radius:8px;
+  font-size:10px;
+  font-weight:600;
+}
+.classroom-instrument-discard{position:absolute;top:-14px;right:-14px;color:#3881bb;background:#fff;border-radius:50%;padding:5px;box-shadow:0 3px 10px rgba(0,0,0,.1)}
+.classroom-instrument-footer .classroom-angle-commit{
+  display:inline-flex;align-items:center;gap:4px;
+  color:#fff!important;background:#2687c8!important;
+  padding:5px 8px!important;
+  border-radius:8px;
+  font-size:10px;
+  font-weight:700;
+}
+@media(max-width:760px){
+  /* Keep CSS pixel units equal to pointer coordinates on phones and interactive screens. */
+  .classroom-instrument{zoom:1!important}
+  .classroom-v2 .classroom-instrument-ruler{transform-origin:16px 52px}
+}

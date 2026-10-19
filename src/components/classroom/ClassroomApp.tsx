@@ -9,7 +9,7 @@ import { LAYERS, type LayerDef } from "@/data/layers";
 import { buildLayer } from "@/lib/astronomy/layerGeometry";
 import { computeSky } from "@/lib/astronomy/sky";
 import { greatCircle, planeNormal, slerpArc, V } from "@/lib/astronomy/math";
-import { ClassroomInstrument } from "./ClassroomInstruments";
+import { ClassroomInstrument, type RulerPose, type AngleDrawing } from "./ClassroomInstruments";
 import "./Classroom.css";
 
 type Vec = [number,number,number];
@@ -20,7 +20,7 @@ type View = "outside" | "inside";
 type Mark = {id:string;points:Vec[];color:string;width:number;surface:boolean;inside:boolean;measure?:string;anchorA?:Vec;anchorB?:Vec;kind?:"pen"|"line"|"ruler"};
 type Stroke = {id:string;points:XY[];color:string;width:number;measure?:{x:number;y:number;label:string}};
 type Snapshot = {marks:Mark[];strokes:Stroke[]};
-type Gesture = {pointer:number;kind:"screen"|"erase"|"free-line"|"edit"|"sphere"|"free-multi";x:number;y:number;startX:number;startY:number;dragged:boolean};
+type Gesture = {pointer:number;kind:"screen"|"erase"|"free-line"|"edit"|"sphere"|"free-multi"|"hollow-pen";x:number;y:number;startX:number;startY:number;dragged:boolean;guide:boolean};
 type Edit = {id:string;endpoint:0|1};
 type CameraCmd = {number:number;dir:Vec};
 const SEASONS = [
@@ -120,6 +120,40 @@ function hitSphere(screen:XY,camera:THREE.Camera,w:number,h:number):Vec|null {
   ray.setFromCamera(new THREE.Vector2(screen[0]/w*2-1,1-screen[1]/h*2),camera);
   const at=ray.ray.intersectSphere(new THREE.Sphere(new THREE.Vector3(),1),new THREE.Vector3());
   return at?t(at.normalize()):null;
+}
+/** Position on the infinitely extendable ruler's top/bottom straight edge. */
+function rulerSnap(pixel:XY,pose:RulerPose):XY|null {
+  // CSS transform-origin on the ruler is 16px 52px from its top-left corner.
+  const theta=pose.angle*Math.PI/180,c=Math.cos(theta),s=Math.sin(theta);
+  const dx=pixel[0]-(pose.x+16),dy=pixel[1]-(pose.y+52);
+  const localX=c*dx+s*dy+16;
+  const localY=-s*dx+c*dy+52;
+  if(localX<12||localX>pose.length+17)return null;
+  const available=pose.edge==="top"?[31]:pose.edge==="bottom"?[96]:[31,96];
+  let nearest=available[0]!,distance=Math.abs(localY-nearest);
+  for(const candidate of available){
+    if(Math.abs(localY-candidate)<distance){nearest=candidate;distance=Math.abs(localY-candidate);}
+  }
+  if(distance>22)return null;
+  const newX=localX-16,newY=nearest-52;
+  return [pose.x+16+c*newX-s*newY,pose.y+52+s*newX+c*newY];
+}
+function rulerProject(pixel:XY,pose:RulerPose):XY {
+  const theta=pose.angle*Math.PI/180,c=Math.cos(theta),s=Math.sin(theta);
+  const dx=pixel[0]-(pose.x+16),dy=pixel[1]-(pose.y+52);
+  const lx=Math.max(17,Math.min(pose.length+14,c*dx+s*dy+16));
+  const ly=-s*dx+c*dy+52;
+  const ys=pose.edge==="top"?[31]:pose.edge==="bottom"?[96]:[31,96];
+  const edge=ys.reduce((best,y)=>Math.abs(y-ly)<Math.abs(best-ly)?y:best,ys[0]!);
+  const x=lx-16,y=edge-52;
+  return [pose.x+16+c*x-s*y,pose.y+52+s*x+c*y];
+}
+function segmentInSphere(a:Vec,b:Vec):Vec[] {
+  // Chords between points on the INSIDE skin; all interior samples are
+  // linearly interpolated in 3D, never slerped on the surface.
+  const from=v(a).multiplyScalar(.984),to=v(b).multiplyScalar(.984);
+  const count=Math.max(3,Math.ceil(from.distanceTo(to)*130));
+  return Array.from({length:count},(_,i)=>t(from.clone().lerp(to,i/(count-1))));
 }
 function inkPath(points:XY[],size:XY){
   return points.map((p,i)=>(i?"L":"M")+(p[0]*size[0]).toFixed(2)+" "+(p[1]*size[1]).toFixed(2)).join(" ");
@@ -249,10 +283,10 @@ function MarkLine({mark,view,showSphere,edit,onBeginEdit}:{mark:Mark;view:View;s
     })}
   </group>;
 }
-function Sphere({visible,zenith,nadir,directions,seasons,marks,pending,tool,color,view,cmd,showSphere,showNames,edit,onPoint,onBeginEdit}:{
+function Sphere({visible,zenith,nadir,directions,seasons,marks,pending,tool,color,view,cmd,showSphere,showNames,edit,draft,onPoint,onBeginEdit}:{
  visible:string[];zenith:boolean;nadir:boolean;directions:boolean;seasons:number[];
  marks:Mark[];pending:Vec|null;tool:Tool;color:string;view:View;cmd:CameraCmd;showSphere:boolean;showNames:boolean;
- edit:Edit|null;onPoint:(p:Vec)=>void;onBeginEdit:(id:string,endpoint:0|1)=>void;
+ edit:Edit|null;draft:Vec[];onPoint:(p:Vec)=>void;onBeginEdit:(id:string,endpoint:0|1)=>void;
 }){
   const sky=useMemo(()=>computeSky(SKY_DATE,0,75.8),[]);
   const great=useMemo(()=>GREAT.map(layer=>{
@@ -300,6 +334,8 @@ function Sphere({visible,zenith,nadir,directions,seasons,marks,pending,tool,colo
       </group>;
     })}
     {marks.map(mark=><MarkLine key={mark.id} mark={mark} view={view} showSphere={showSphere} edit={edit} onBeginEdit={onBeginEdit}/>)}
+    {draft.length>1&&<Line points={draft.map(p=>new THREE.Vector3(...p))} color={color}
+      lineWidth={3} depthTest={false} depthWrite={false} raycast={()=>null}/>} 
     {pending&&<mesh raycast={()=>null} position={v(pending).multiplyScalar(view==="inside"?0.981:1.027)}>
       <sphereGeometry args={[0.022,18,18]}/><meshBasicMaterial color={color} depthTest={false}/></mesh>}
   </>;
@@ -331,6 +367,9 @@ export function ClassroomApp(){
   const [pendingScreenVertices,setPendingScreenVertices]=useState<XY[]>([]);
   const [rulerVisible,setRulerVisible]=useState(false);
   const [protractorVisible,setProtractorVisible]=useState(false);
+  const [rulerPose,setRulerPose]=useState<RulerPose>({x:330,y:140,angle:0,length:360,edge:"nearest"});
+  const [hollowPenDraft,setHollowPenDraft]=useState<Vec[]>([]);
+  const hollowDraftRef=useRef<Vec[]>([]);
   const stageRef=useRef<HTMLElement|null>(null);
   const [stageSize,setStageSize]=useState<XY>([1000,700]);
   const [edit,setEdit]=useState<Edit|null>(null);
@@ -357,11 +396,11 @@ export function ClassroomApp(){
   const snapshot=useCallback(()=>setHistory(old=>[...old,{marks,strokes}]),[marks,strokes]);
 
   const chooseTool=(next:Tool)=>{
-    setTool(next);setPending(null);setPendingScreen(null);setPendingVertices([]);setPendingScreenVertices([]);setDrawing(null);setEdit(null);
+    setTool(next);setPending(null);setPendingScreen(null);setPendingVertices([]);setPendingScreenVertices([]);setDrawing(null);setHollowPenDraft([]);hollowDraftRef.current=[];setEdit(null);
     setInfo(next==="orbit"?"Drag vertically N–S or horizontally E–W; scroll/pinch to zoom.":
       next==="eraser"?"Click any teacher-drawn line to remove it; drag across a portion to cut it.":
-      next==="pen"?"Shape ON: click the ball to trace its surface. Shape OFF: drag for freehand ink.":
-      next==="line"?"Shape ON: select two points on the ball surface. Shape OFF: select two free screen points.":
+      next==="pen"?"Shape ON: follow ball skin. Inside + Shape OFF: draw hollow 3D segments. Drag along the ruler edge for a perfect straight stroke.":
+      next==="line"?"Shape ON: ball-surface arc. Inside + Shape OFF: 3D straight chord through the hollow interior. Outside + OFF: flat line.":
       next==="triangle"?"Choose three points. Shape ON draws spherical edges; OFF draws straight triangle sides.":
       next==="protractor"?"Choose vertex, first arm, second arm to measure the angle.":
       "Select two points to measure their angular separation.");
@@ -374,7 +413,7 @@ export function ClassroomApp(){
       const b=which.endpoint===1?point:mark.anchorB;
       if(angle(a,b)<0.003)return mark;
       const pts=mark.surface?shapePath(a,b,mark.inside):
-        straightPath(a,b,mark.inside?"inside":"outside");
+        mark.inside?segmentInSphere(a,b):straightPath(a,b,"outside");
       return {...mark,anchorA:a,anchorB:b,points:pts,measure:mark.kind==="ruler"?deg(a,b)+"°":undefined};
     }));
   },[]);
@@ -385,7 +424,18 @@ export function ClassroomApp(){
   },[]);
   const onPoint=useCallback((point:Vec)=>{
     if(edit){snapshot();moveEndpoint(edit,point);setEdit(null);setInfo("Endpoint moved. Undo restores the previous position.");return;}
-    if(tool==="orbit"||tool==="eraser"||!shape)return;
+    if(tool==="orbit"||tool==="eraser")return;
+    if(!shape&&view==="inside"&&tool==="line"){
+      if(!pending){setPending(point);setInfo("First internal endpoint selected. Choose the other endpoint.");return;}
+      if(angle(pending,point)<.006)return;
+      snapshot();
+      setMarks(old=>[...old,{id:makeId(),anchorA:pending,anchorB:point,kind:"line",
+        points:segmentInSphere(pending,point),color,width,surface:false,inside:true}]);
+      setPending(null);
+      setInfo("Hollow 3D straight chord drawn through the sphere interior.");
+      return;
+    }
+    if(!shape)return;
     if(tool==="triangle"||tool==="protractor"){
       const points=[...pendingVertices,point];
       if(points.length<3){
@@ -434,6 +484,7 @@ export function ClassroomApp(){
     const rect=stageRect();return rect?[clientX-rect.left,clientY-rect.top]:[0,0];
   };
   const normalizedFromPixel=(p:XY):XY=>[p[0]/stageSize[0],p[1]/stageSize[1]];
+  const guided=(p:XY)=>rulerVisible?rulerSnap(p,rulerPose):null;
   const sphereFromPixel=(p:XY):Vec|null=>{
     if(!cameraRef.current)return null;
     return hitSphere(p,cameraRef.current,stageSize[0],stageSize[1]);
@@ -512,20 +563,31 @@ export function ClassroomApp(){
     if((e.target as Element).closest(".classroom-instrument"))return;
     if(!e.isPrimary){gesture.current=null;return;}
     if(e.button!==0||gesture.current)return;
+    const p=pixelFromClient(e.clientX,e.clientY);
+    const snap=(tool==="pen"||tool==="line")?guided(p):null;
+    const useRuler=Boolean(snap);
     const kind:Gesture["kind"]|null=edit?"edit":
       tool==="eraser"?"erase":
+      tool==="pen"&&useRuler?"screen":
+      tool==="line"&&(useRuler||pendingScreen)?"free-line":
+      view==="inside"&&!shape&&tool==="pen"?"hollow-pen":
+      view==="inside"&&!shape&&tool==="line"?"sphere":
       !shape&&tool==="pen"?"screen":
       !shape&&tool==="line"?"free-line":
       !shape&&(tool==="ruler"||tool==="triangle"||tool==="protractor")?"free-multi":
       shape&&tool!=="orbit"?"sphere":null;
     if(!kind)return;
-    const p=pixelFromClient(e.clientX,e.clientY);
-    gesture.current={pointer:e.pointerId,kind,x:p[0],y:p[1],startX:p[0],startY:p[1],dragged:false};
-    if(kind==="sphere")return; // Preserve OrbitControls' own pointer and pinch handling.
+    gesture.current={pointer:e.pointerId,kind,x:p[0],y:p[1],startX:p[0],startY:p[1],dragged:false,guide:useRuler};
+    if(kind==="sphere")return; // Dragging keeps OrbitControls active.
     e.preventDefault();e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
-    if(kind==="edit"||kind==="screen"||kind==="erase")snapshot();
-    if(kind==="screen")setDrawing({id:makeId(),points:[normalizedFromPixel(p)],color,width});
+    if(kind==="edit"||kind==="screen"||kind==="erase"||kind==="hollow-pen")snapshot();
+    if(kind==="screen")setDrawing({id:makeId(),points:[normalizedFromPixel(useRuler?rulerProject(p,rulerPose):p)],color,width});
+    if(kind==="hollow-pen"){
+      const point=sphereFromPixel(p);
+      hollowDraftRef.current=point?[...segmentInSphere(point,point).slice(0,1)]:[];
+      setHollowPenDraft(hollowDraftRef.current);
+    }
     if(kind==="erase")setEraserCursor(normalizedFromPixel(p));
   };
   const screenMove=(e:ReactPointerEvent<HTMLElement>)=>{
@@ -541,12 +603,28 @@ export function ClassroomApp(){
       const previous:XY=[g.x,g.y],steps=Math.max(1,Math.ceil(dist2(previous,p)/4));
       setDrawing(old=>{
         if(!old)return null;
-        const extension=Array.from({length:steps},(_,i)=>normalizedFromPixel([
-          previous[0]+(p[0]-previous[0])*(i+1)/steps,
-          previous[1]+(p[1]-previous[1])*(i+1)/steps,
-        ]));
+        const extension=Array.from({length:steps},(_,i)=>{
+          const px:XY=[previous[0]+(p[0]-previous[0])*(i+1)/steps,
+            previous[1]+(p[1]-previous[1])*(i+1)/steps];
+          return normalizedFromPixel(g.guide?rulerProject(px,rulerPose):px);
+        });
         return {...old,points:[...old.points,...extension]};
       });
+      g.x=p[0];g.y=p[1];
+    }else if(g.kind==="hollow-pen"){
+      const previous:XY=[g.x,g.y],steps=Math.max(1,Math.ceil(dist2(previous,p)/5));
+      const collection=[...hollowDraftRef.current];
+      for(let i=1;i<=steps;i++){
+        const px:XY=[previous[0]+(p[0]-previous[0])*i/steps,
+          previous[1]+(p[1]-previous[1])*i/steps];
+        const point=sphereFromPixel(px);
+        if(!point)continue;
+        const last=collection[collection.length-1];
+        if(!last)collection.push(t(v(point).multiplyScalar(.984)));
+        else if(angle(last,point)>.002)collection.push(...segmentInSphere(last,point).slice(1));
+      }
+      hollowDraftRef.current=collection;
+      setHollowPenDraft(collection);
       g.x=p[0];g.y=p[1];
     }else if(g.kind==="erase"&&g.dragged){
       const previous:XY=[g.x,g.y],steps=Math.max(1,Math.ceil(dist2(previous,p)/8));
@@ -577,7 +655,13 @@ export function ClassroomApp(){
       return;
     }
     e.stopPropagation();
-    if(g.kind==="screen"){
+    if(g.kind==="hollow-pen"){
+      const points=hollowDraftRef.current;
+      if(points.length>1)setMarks(old=>[...old,{id:makeId(),points,color,width,surface:false,inside:true,kind:"pen"}]);
+      hollowDraftRef.current=[];
+      setHollowPenDraft([]);
+      setInfo("Free 3D pen: successive straight segments run through the hollow interior.");
+    }else if(g.kind==="screen"){
       if(drawing){
         const points=drawing.points.length===1?[drawing.points[0]!,drawing.points[0]!]:drawing.points;
         setStrokes(old=>[...old,{...drawing,points}]);
@@ -586,7 +670,7 @@ export function ClassroomApp(){
     }else if(g.kind==="erase"){
       if(!g.dragged)eraseAt(p,false);
     }else if(g.kind==="free-line"||g.kind==="free-multi"){
-      if(!g.dragged)addFreePoint(normalizedFromPixel(p));
+      if(!g.dragged)addFreePoint(normalizedFromPixel(g.guide?rulerProject(p,rulerPose):p));
     }else if(g.kind==="edit"&&edit){
       const point=sphereFromPixel(p);
       if(point)moveEndpoint(edit,point);
@@ -618,6 +702,36 @@ export function ClassroomApp(){
       setPendingVertices([]);
       setPendingScreenVertices([]);
     }
+  };
+  /** Commit protractor rays and angle to the board as editable/erasable screen ink. */
+  const addInstrumentAngle=(instrument:AngleDrawing)=>{
+    const [cx,cy]=instrument.center;
+    const start:XY=instrument.start,end:XY=instrument.end;
+    const lerp=(a:XY,b:XY,steps:number)=>Array.from({length:steps+1},(_,i):XY=>[
+      a[0]+(b[0]-a[0])*i/steps,a[1]+(b[1]-a[1])*i/steps
+    ]);
+    const A=Math.atan2(start[1]-cy,start[0]-cx);
+    const B=Math.atan2(end[1]-cy,end[0]-cx);
+    const screenSweep=(B-A+Math.PI*2)%(Math.PI*2);
+    // In SVG, y grows downward; the instrument's angle runs counter-clockwise.
+    const theta=instrument.mode==="full"?-instrument.degrees*Math.PI/180:
+      (screenSweep>Math.PI?-1:1)*instrument.degrees*Math.PI/180;
+    const radius=Math.min(Math.hypot(start[0]-cx,start[1]-cy),Math.hypot(end[0]-cx,end[1]-cy))*.57;
+    const center:XY=[cx,cy];
+    const arc=Array.from({length:49},(_,i):XY=>[
+      cx+Math.cos(A+theta*i/48)*radius,cy+Math.sin(A+theta*i/48)*radius
+    ]);
+    const normalizedPoints=(points:XY[])=>points.map(([x,y]):XY=>[x/stageSize[0],y/stageSize[1]]);
+    const midpoint=arc[Math.floor(arc.length/2)]!;
+    const label:Stroke["measure"]={x:midpoint[0]/stageSize[0],y:midpoint[1]/stageSize[1],
+      label:instrument.degrees.toFixed(0)+"°"};
+    snapshot();
+    setStrokes(old=>[...old,
+      {id:makeId(),color,width,points:normalizedPoints(lerp(center,start,36))},
+      {id:makeId(),color,width,points:normalizedPoints(lerp(center,end,36))},
+      {id:makeId(),color:"#ffc14f",width:Math.max(1,width-1),points:normalizedPoints(arc),measure:label}
+    ]);
+    setInfo("Protractor "+instrument.degrees.toFixed(0)+"° angle added to the board.");
   };
   const undo=()=>{
     if(edit){setEdit(null);return;}
@@ -657,7 +771,7 @@ export function ClassroomApp(){
         onCreated={({camera})=>{cameraRef.current=camera;}}>
         <Sphere visible={visible} zenith={zenith} nadir={nadir} directions={directions} seasons={seasons}
           marks={marks} pending={pending} tool={tool} color={color} view={view} cmd={cmd}
-          showSphere={showSphere} showNames={showNames} edit={edit} onPoint={onPoint} onBeginEdit={onBeginEdit}/>
+          showSphere={showSphere} showNames={showNames} edit={edit} draft={hollowPenDraft} onPoint={onPoint} onBeginEdit={onBeginEdit}/>
       </Canvas>
       <svg className="classroom-ink-layer" width="100%" height="100%"
         viewBox={"0 0 "+stageSize[0]+" "+stageSize[1]} preserveAspectRatio="none"
@@ -676,8 +790,8 @@ export function ClassroomApp(){
           cy={eraserCursor[1]*stageSize[1]} r={16} fill="rgba(255,255,255,.12)"
           stroke="#fff2c2" strokeWidth={2}/>}
       </svg>
-      {rulerVisible&&<ClassroomInstrument type="ruler" onClose={()=>setRulerVisible(false)}/>}
-      {protractorVisible&&<ClassroomInstrument type="protractor" onClose={()=>setProtractorVisible(false)}/>}
+      {rulerVisible&&<ClassroomInstrument type="ruler" stageSize={stageSize} ruler={rulerPose} onRulerChange={setRulerPose} onClose={()=>setRulerVisible(false)}/>}
+      {protractorVisible&&<ClassroomInstrument type="protractor" stageSize={stageSize} onCommitAngle={addInstrumentAngle} onClose={()=>setProtractorVisible(false)}/>}
     </section>
     <aside className="classroom-layers classroom-glass" aria-label="Great circle controls">
       <div className="classroom-panel-head"><div><span className="classroom-overline">GEOMETRY</span><h2 dir="rtl">الدَّوَائِرُ الْعِظَامُ</h2><p>10 Great Circles</p></div>
@@ -717,14 +831,14 @@ export function ClassroomApp(){
             <DraftingCompass size={16}/> {protractorVisible?"Hide protractor":"Show protractor"}
           </button>
         </div>
-        <p className="classroom-hint">Drag the grip to move; drag Rotate to turn. The ruler uses diagram units, not real-world kilometres.</p>
+        <p className="classroom-hint">Use ruler ↔ to extend, grip to move, Rotate to turn. With Pen, trace along the transparent ruler edge to snap perfectly straight. The protractor supports 180°/360°, angle arms, snap increments and Draw mode.</p>
       </div>
       <div className="classroom-tool-section classroom-shape-toggle">
         <button className={"classroom-shape-button"+(shape?" on":"")} onClick={()=>{setShape(old=>!old);setPending(null);}}>
-          <Shapes size={17}/><span><strong>Shape</strong><small>{shape?"ON · Click points on sphere surface":"OFF · Freehand anywhere off the sphere"}</small></span>
+          <Shapes size={17}/><span><strong>Shape</strong><small>{shape?"ON · Surface-constrained curves":"OFF · Inside draws through hollow 3D space"}</small></span>
           <span className={"classroom-switch"+(shape?" on":"")}/>
         </button>
-        <p className="classroom-hint">Shape ON: both Pen and Line follow the ball surface (two clicks), while dragging rotates the sphere. Shape OFF: freehand Pen and point-to-point flat Line. Double-click a 3D endpoint to move or extend it.</p>
+        <p className="classroom-hint">Shape ON: Pen and Line follow the ball skin. Shape OFF: outside = flat ink; inside = 3D straight chords, not surface arcs. A ruler guides pen strokes into a precise straight line.</p>
       </div>
       <div className="classroom-tool-section classroom-view-section">
         <div className="classroom-section-title"><Compass size={15}/> Sphere camera</div>
@@ -761,7 +875,7 @@ export function ClassroomApp(){
           <button className={placement==="inside"?"selected":""} onClick={()=>{setPlacement("inside");setPending(null);}}>Inside</button>
           <button className={placement==="outside"?"selected":""} onClick={()=>{setPlacement("outside");setPending(null);}}>Outside</button>
         </div>
-        <p className="classroom-hint">Shape ON: Line and Pen are painted directly on the sphere. Shape OFF: Line is drawn freely on the whiteboard; Scale still measures the globe. Inside / Outside controls where non-surface measurements appear.</p>
+        <p className="classroom-hint">Shape ON draws ball-surface arcs. Inside view + Shape OFF draws real straight 3D chords through the hollow interior. Outside view + Shape OFF draws screen-space lines.</p>
       </div>
       <div className="classroom-tool-section"><div className="classroom-section-title"><Compass size={15}/> Reference points</div>
         <div className="classroom-toggles">
