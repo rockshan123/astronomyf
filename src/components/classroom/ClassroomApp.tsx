@@ -5,7 +5,7 @@ import { Link } from "@tanstack/react-router";
 import * as THREE from "three";
 import type { OrbitControls as OrbitImpl } from "three-stdlib";
 import { ArrowLeft, Check, Compass, Eraser, Eye, EyeOff, Maximize2, MousePointer2, Palette, PenLine, RotateCcw, Ruler, Slash, Undo2, X, Shapes, Triangle, DraftingCompass } from "lucide-react";
-import { LAYERS } from "@/data/layers";
+import { LAYERS, type LayerDef } from "@/data/layers";
 import { buildLayer } from "@/lib/astronomy/layerGeometry";
 import { computeSky } from "@/lib/astronomy/sky";
 import { greatCircle, planeNormal, slerpArc, V } from "@/lib/astronomy/math";
@@ -155,6 +155,58 @@ function Tag({p,ar,en,color,view,showSphere}:{p:THREE.Vector3;ar:string;en?:stri
     </div>
   </Html>;
 }
+/**
+ * Arabic names follow their own geometrical circles, rather than appearing
+ * at a fixed global point where several labels can overlap or disappear.
+ * Targets deliberately occupy different areas of the teaching sphere.
+ */
+const LABEL_TARGETS:XY[]=[
+  [-0.43, 0.48], [0.42,0.48], [-0.56,0.12], [0.55,0.18],
+  [-0.49,-0.26], [0.51,-0.24], [-0.20,-0.54], [0.22,-0.51],
+  [0.00,0.73], [0.02,-0.72],
+];
+function CircleName({layer,lines,index,view}:{
+  layer:LayerDef;lines:THREE.Vector3[][];index:number;view:View;
+}){
+  const group=useRef<THREE.Group>(null);
+  const element=useRef<HTMLDivElement>(null);
+  const sample=useMemo(()=>new THREE.Vector3(),[]);
+  const frameCount=useRef(0);
+  useFrame(({camera})=>{
+    if(!group.current||!element.current)return;
+    // Avoid heavy layout or projection work on every rendered frame.
+    if(++frameCount.current%8!==1)return;
+    const [targetX,targetY]=LABEL_TARGETS[index]??[0,0];
+    let bestPoint:THREE.Vector3|null=null;
+    let bestScore=Number.POSITIVE_INFINITY;
+    for(const pts of lines){
+      for(let i=0;i<pts.length;i+=Math.max(1,Math.floor(pts.length/90))){
+        const point=pts[i]!;
+        if(view==="outside"&&point.dot(camera.position)<0.18)continue;
+        sample.copy(point).multiplyScalar(view==="inside"?0.978:1.055).project(camera);
+        if(sample.z<-1||sample.z>1||Math.abs(sample.x)>0.97||Math.abs(sample.y)>0.94)continue;
+        const score=(sample.x-targetX)**2+(sample.y-targetY)**2;
+        if(score<bestScore){bestScore=score;bestPoint=point;}
+      }
+    }
+    element.current.style.visibility=bestPoint?"visible":"hidden";
+    if(bestPoint){
+      group.current.position.copy(bestPoint).normalize().multiplyScalar(view==="inside"?0.978:1.055);
+    }
+  });
+  return <group ref={group}>
+    <Html center zIndexRange={[3,0]} style={{pointerEvents:"none"}}>
+      <div ref={element} className="classroom-circle-name" style={{borderColor:layer.color}}>
+        <span className="classroom-circle-name-number" style={{color:layer.color}}>
+          {String(layer.num).padStart(2,"0")}
+        </span>
+        <strong lang="ar" dir="rtl">{layer.ar}</strong>
+        {layer.status==="review"&&<small>SCHEMATIC</small>}
+      </div>
+    </Html>
+  </group>;
+}
+
 function ClassroomCamera({view,cmd,enabled}:{view:View;cmd:CameraCmd;enabled:boolean}){
   const {camera}=useThree();
   const controls=useRef<OrbitImpl>(null);
@@ -200,9 +252,9 @@ function MarkLine({mark,view,showSphere,edit,onBeginEdit}:{mark:Mark;view:View;s
     })}
   </group>;
 }
-function Sphere({visible,zenith,nadir,directions,seasons,marks,pending,tool,color,view,cmd,showSphere,edit,onPoint,onBeginEdit}:{
+function Sphere({visible,zenith,nadir,directions,seasons,marks,pending,tool,color,view,cmd,showSphere,showNames,edit,onPoint,onBeginEdit}:{
  visible:string[];zenith:boolean;nadir:boolean;directions:boolean;seasons:number[];
- marks:Mark[];pending:Vec|null;tool:Tool;color:string;view:View;cmd:CameraCmd;showSphere:boolean;
+ marks:Mark[];pending:Vec|null;tool:Tool;color:string;view:View;cmd:CameraCmd;showSphere:boolean;showNames:boolean;
  edit:Edit|null;onPoint:(p:Vec)=>void;onBeginEdit:(id:string,endpoint:0|1)=>void;
 }){
   const sky=useMemo(()=>computeSky(SKY_DATE,0,75.8),[]);
@@ -231,17 +283,12 @@ function Sphere({visible,zenith,nadir,directions,seasons,marks,pending,tool,colo
       <mesh scale={1.001} raycast={()=>null}><sphereGeometry args={[1,32,24]}/>
         <meshBasicMaterial side={THREE.DoubleSide} color="#80a7cf" wireframe transparent opacity={0.07} depthWrite={false}/></mesh>
     </>}
-    {great.filter(({layer})=>visible.includes(layer.id)).map(({layer,lines})=>{
-      const geometry=buildLayer(layer.id,sky);
-      const at=(geometry.label??lines[0]?.[Math.floor((lines[0]?.length??1)*0.21)]??V(0,0,1))
-        .clone().normalize().multiplyScalar(view==="inside"?0.987:1.095);
-      return <group key={layer.id}>
-        {lines.map((pts,i)=><Line key={i} points={pts.map(p=>p.clone().multiplyScalar(1.008))}
-          color={layer.color} lineWidth={layer.num<=2?3.2:2.2}
-          transparent opacity={0.98} depthTest={showSphere&&view==="outside"} depthWrite={false} raycast={()=>null}/>)}
-        <Tag p={at} ar={layer.ar} view={view} showSphere={showSphere} color={layer.color}/>
-      </group>;
-    })}
+    {great.filter(({layer})=>visible.includes(layer.id)).map(({layer,lines})=><group key={layer.id}>
+      {lines.map((pts,i)=><Line key={i} points={pts.map(p=>p.clone().multiplyScalar(1.008))}
+        color={layer.color} lineWidth={layer.num<=2?3.2:2.2}
+        transparent opacity={0.98} depthTest={showSphere&&view==="outside"} depthWrite={false} raycast={()=>null}/>)}
+      {showNames&&<CircleName layer={layer} lines={lines} index={layer.num-1} view={view}/>}
+    </group>)}
     {directions&&([
       [V(0,0,-1.16),"N","North"],[V(0,0,1.16),"S","South"],
       [V(1.16,0,0),"E","East"],[V(-1.16,0,0),"W","West"]
@@ -273,6 +320,7 @@ export function ClassroomApp(){
   const [directions,setDirections]=useState(true);
   const [seasons,setSeasons]=useState<number[]>(SEASONS.map(s=>s.longitude));
   const [showSphere,setShowSphere]=useState(true);
+  const [showNames,setShowNames]=useState(true);
   const [tool,setTool]=useState<Tool>("orbit");
   const [shape,setShape]=useState(true);
   const [view,setView]=useState<View>("outside");
@@ -612,7 +660,7 @@ export function ClassroomApp(){
         onCreated={({camera})=>{cameraRef.current=camera;}}>
         <Sphere visible={visible} zenith={zenith} nadir={nadir} directions={directions} seasons={seasons}
           marks={marks} pending={pending} tool={tool} color={color} view={view} cmd={cmd}
-          showSphere={showSphere} edit={edit} onPoint={onPoint} onBeginEdit={onBeginEdit}/>
+          showSphere={showSphere} showNames={showNames} edit={edit} onPoint={onPoint} onBeginEdit={onBeginEdit}/>
       </Canvas>
       <svg className="classroom-ink-layer" width="100%" height="100%"
         viewBox={"0 0 "+stageSize[0]+" "+stageSize[1]} preserveAspectRatio="none"
@@ -636,7 +684,11 @@ export function ClassroomApp(){
     </section>
     <aside className="classroom-layers classroom-glass" aria-label="Great circle controls">
       <div className="classroom-panel-head"><div><span className="classroom-overline">GEOMETRY</span><h2 dir="rtl">الدَّوَائِرُ الْعِظَامُ</h2><p>10 Great Circles</p></div>
-        <button className="classroom-tiny" onClick={()=>setVisible(visible.length===GREAT.length?[]:GREAT.map(l=>l.id))}>{visible.length===GREAT.length?"Hide all":"Show all"}</button></div>
+        <div className="classroom-name-actions">
+          <button className="classroom-tiny" aria-pressed={showNames}
+            onClick={()=>setShowNames(x=>!x)}>{showNames?"Hide names":"Show names"}</button>
+          <button className="classroom-tiny" onClick={()=>setVisible(visible.length===GREAT.length?[]:GREAT.map(l=>l.id))}>{visible.length===GREAT.length?"Hide all":"Show all"}</button>
+        </div></div>
       <div className="classroom-circle-list">{GREAT.map(l=><label key={l.id} className={"classroom-circle-row"+(visible.includes(l.id)?" active":"")}>
         <input type="checkbox" checked={visible.includes(l.id)}
           onChange={()=>setVisible(old=>old.includes(l.id)?old.filter(id=>id!==l.id):[...old,l.id])}/>
@@ -730,7 +782,7 @@ export function ClassroomApp(){
       <div className="classroom-actions">
         <button onClick={undo} disabled={!edit&&!pending&&!pendingScreen&&!pendingVertices.length&&!pendingScreenVertices.length&&!history.length}><Undo2 size={15}/> Undo</button>
         <button onClick={clear} disabled={!pending&&!pendingScreen&&!pendingVertices.length&&!pendingScreenVertices.length&&marks.length===0&&strokes.length===0}><Eraser size={15}/> Clear</button>
-        <button onClick={()=>{setMarks([]);setStrokes([]);setHistory([]);setPending(null);setPendingScreen(null);setPendingVertices([]);setPendingScreenVertices([]);setEdit(null);setShowSphere(true);setRulerVisible(false);setProtractorVisible(false);setVisible(DEFAULT_VISIBLE);setSeasons(SEASONS.map(s=>s.longitude));setZenith(true);setNadir(true);setDirections(true);setView("outside");setCmd(old=>({number:old.number+1,dir:[0,0,1]}));setShape(true);chooseTool("orbit");}}><RotateCcw size={15}/> Reset</button>
+        <button onClick={()=>{setMarks([]);setStrokes([]);setHistory([]);setPending(null);setPendingScreen(null);setPendingVertices([]);setPendingScreenVertices([]);setEdit(null);setShowSphere(true);setShowNames(true);setRulerVisible(false);setProtractorVisible(false);setVisible(DEFAULT_VISIBLE);setSeasons(SEASONS.map(s=>s.longitude));setZenith(true);setNadir(true);setDirections(true);setView("outside");setCmd(old=>({number:old.number+1,dir:[0,0,1]}));setShape(true);chooseTool("orbit");}}><RotateCcw size={15}/> Reset</button>
       </div>
     </aside>
     <div className="classroom-status classroom-glass" role="status"><span className="classroom-status-dot"/><span>{info}</span>

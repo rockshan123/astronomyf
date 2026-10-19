@@ -284,3 +284,58 @@
 /* Keep touch ink aligned with the 3D stage and prevent browser gestures while drawing. */
 .classroom-v2 .classroom-stage{touch-action:none}
 .classroom-v2 .classroom-instrument{pointer-events:auto}
+
+
+/* Every great circle has its own readable Arabic teaching label. */
+.classroom-name-actions{
+  display:flex;gap:5px;flex-wrap:wrap;align-items:center;justify-content:flex-end;
+}
+.classroom-name-actions .classroom-tiny{
+  font-size:9px;padding:6px 7px;
+}
+.classroom-name-actions .classroom-tiny[aria-pressed="true"]{
+  color:#1a68ad;border-color:#95c4ed;background:#eaf5ff;
+}
+.classroom-circle-name{
+  display:flex;align-items:center;gap:7px;
+  max-width:215px;
+  padding:5px 9px;
+  border:1px solid;
+  border-left-width:3px;
+  border-radius:12px;
+  color:#f7f9ff;
+  background:rgba(7,17,35,.88);
+  -webkit-backdrop-filter:blur(12px) saturate(135%);
+  backdrop-filter:blur(12px) saturate(135%);
+  box-shadow:0 4px 17px rgba(0,0,0,.38),inset 0 1px rgba(255,255,255,.08);
+  text-shadow:0 1px 3px rgba(0,0,0,.45);
+  pointer-events:none;
+  user-select:none;
+  white-space:normal;
+  text-align:center;
+}
+.classroom-circle-name strong{
+  font-family:"Amiri","Noto Naskh Arabic",serif;
+  font-size:16px;
+  line-height:1.55;
+  font-weight:700;
+  direction:rtl;
+  overflow-wrap:anywhere;
+  min-width:0;
+}
+.classroom-circle-name-number{
+  font:700 10px/1.2 "IBM Plex Sans",system-ui,sans-serif;
+  letter-spacing:.025em;
+  opacity:.9;
+  flex:none;
+}
+.classroom-circle-name small{
+  font:700 7px/1.1 "IBM Plex Sans",system-ui,sans-serif;
+  color:#ffd98b;letter-spacing:.03em;
+}
+@media(max-width:760px){
+  .classroom-circle-name{max-width:125px;padding:3px 5px;gap:4px;border-radius:8px}
+  .classroom-circle-name strong{font-size:12px;line-height:1.4}
+  .classroom-circle-name-number{font-size:8px}
+  .classroom-name-actions .classroom-tiny{font-size:9px}
+}
