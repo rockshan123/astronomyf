@@ -191,17 +191,14 @@ function CircleName({layer,lines,index,view}:{
     }
     element.current.style.visibility=bestPoint?"visible":"hidden";
     if(bestPoint){
-      group.current.position.copy(bestPoint).normalize().multiplyScalar(view==="inside"?0.978:1.055);
+      group.current.position.copy(bestPoint).normalize().multiplyScalar(view==="inside"?0.987:1.025);
     }
   });
   return <group ref={group}>
     <Html center zIndexRange={[3,0]} style={{pointerEvents:"none"}}>
-      <div ref={element} className="classroom-circle-name" style={{borderColor:layer.color}}>
-        <span className="classroom-circle-name-number" style={{color:layer.color}}>
-          {String(layer.num).padStart(2,"0")}
-        </span>
-        <strong lang="ar" dir="rtl">{layer.ar}</strong>
-        {layer.status==="review"&&<small>SCHEMATIC</small>}
+      <div ref={element} className="classroom-circle-name"
+        style={{color:layer.color}} title={layer.en}>
+        <span lang="ar" dir="rtl">{layer.ar}</span>
       </div>
     </Html>
   </group>;

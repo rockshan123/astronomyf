@@ -296,46 +296,40 @@
 .classroom-name-actions .classroom-tiny[aria-pressed="true"]{
   color:#1a68ad;border-color:#95c4ed;background:#eaf5ff;
 }
+/* Labels are plain Arabic annotations close to their coloured 3D circles,
+   like the observatory reference image: no glass card, frame or number. */
 .classroom-circle-name{
-  display:flex;align-items:center;gap:7px;
-  max-width:215px;
-  padding:5px 9px;
-  border:1px solid;
-  border-left-width:3px;
-  border-radius:12px;
-  color:#f7f9ff;
-  background:rgba(7,17,35,.88);
-  -webkit-backdrop-filter:blur(12px) saturate(135%);
-  backdrop-filter:blur(12px) saturate(135%);
-  box-shadow:0 4px 17px rgba(0,0,0,.38),inset 0 1px rgba(255,255,255,.08);
-  text-shadow:0 1px 3px rgba(0,0,0,.45);
+  display:block;
+  max-width:205px;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:none;
+  box-shadow:none;
+  -webkit-backdrop-filter:none;
+  backdrop-filter:none;
+  color:inherit;
+  text-align:center;
   pointer-events:none;
   user-select:none;
   white-space:normal;
-  text-align:center;
+  transform:translateY(-11px);
 }
-.classroom-circle-name strong{
+.classroom-circle-name span{
+  display:block;
   font-family:"Amiri","Noto Naskh Arabic",serif;
-  font-size:16px;
-  line-height:1.55;
+  font-size:17px;
+  line-height:1.4;
   font-weight:700;
-  direction:rtl;
   overflow-wrap:anywhere;
-  min-width:0;
-}
-.classroom-circle-name-number{
-  font:700 10px/1.2 "IBM Plex Sans",system-ui,sans-serif;
-  letter-spacing:.025em;
-  opacity:.9;
-  flex:none;
-}
-.classroom-circle-name small{
-  font:700 7px/1.1 "IBM Plex Sans",system-ui,sans-serif;
-  color:#ffd98b;letter-spacing:.03em;
+  text-shadow:
+    0 2px 3px rgba(0,0,0,.98),
+    0 -1px 3px rgba(0,0,0,.97),
+    -1px 0 2px rgba(0,0,0,.95),
+    1px 0 2px rgba(0,0,0,.95);
 }
 @media(max-width:760px){
-  .classroom-circle-name{max-width:125px;padding:3px 5px;gap:4px;border-radius:8px}
-  .classroom-circle-name strong{font-size:12px;line-height:1.4}
-  .classroom-circle-name-number{font-size:8px}
+  .classroom-circle-name{max-width:145px;transform:translateY(-7px)}
+  .classroom-circle-name span{font-size:13px;line-height:1.35}
   .classroom-name-actions .classroom-tiny{font-size:9px}
 }
