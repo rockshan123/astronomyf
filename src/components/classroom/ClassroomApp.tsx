@@ -245,7 +245,7 @@ function ClassroomCamera({view,cmd,enabled}:{view:View;cmd:CameraCmd;enabled:boo
     const d=v(cmd.dir);
     camera.position.copy(d.multiplyScalar(view==="inside"?-0.09:3.25));
     const perspective=camera as THREE.PerspectiveCamera;
-    perspective.fov=view==="inside"?75:45;
+    perspective.fov=view==="inside"?94:45;
     perspective.near=0.002;
     perspective.updateProjectionMatrix();
     controls.current?.target.set(0,0,0);
@@ -255,8 +255,8 @@ function ClassroomCamera({view,cmd,enabled}:{view:View;cmd:CameraCmd;enabled:boo
     enableDamping dampingFactor={0.07} rotateSpeed={0.83} zoomSpeed={0.85}
     minPolarAngle={0.0001} maxPolarAngle={Math.PI-0.0001}
     minAzimuthAngle={-Infinity} maxAzimuthAngle={Infinity}
-    minDistance={view==="inside"?0.012:1.3}
-    maxDistance={view==="inside"?0.92:11}/>;
+    minDistance={view==="inside"?0.002:1.3}
+    maxDistance={view==="inside"?0.992:11}/>;
 }
 function MarkLine({mark,view,showSphere,edit,onBeginEdit}:{mark:Mark;view:View;showSphere:boolean;edit:Edit|null;onBeginEdit:(id:string,endpoint:0|1)=>void}){
   if(mark.points.length<2)return null;
@@ -360,6 +360,15 @@ export function ClassroomApp(){
   const [cmd,setCmd]=useState<CameraCmd>({number:0,dir:[0,0,1]});
   const [placement,setPlacement]=useState<Place>("inside");
   const [color,setColor]=useState("#51a1ff");
+  const [hexDraft,setHexDraft]=useState("#51a1ff");
+  const [recentColors,setRecentColors]=useState<string[]>([]);
+  const applyColor=(value:string)=>{
+    const normalized=value.toLowerCase();
+    if(!/^#[0-9a-f]{6}$/.test(normalized))return;
+    setColor(normalized);
+    setHexDraft(normalized);
+    setRecentColors(previous=>[normalized,...previous.filter(item=>item!==normalized)].slice(0,5));
+  };
   const [width,setWidth]=useState(3);
   const [pending,setPending]=useState<Vec|null>(null);
   const [pendingScreen,setPendingScreen]=useState<XY|null>(null);
@@ -814,12 +823,12 @@ export function ClassroomApp(){
         <h2 className="classroom-tool-heading">Teaching tools</h2><p>Sketch · Measure · Explain</p></div><PenLine size={19}/></div>
       <div className="classroom-toolstrip" role="group" aria-label="Drawing mode">
         <ToolButton active={tool==="orbit"} onClick={()=>chooseTool("orbit")} label="Rotate the sphere"><MousePointer2 size={19}/>Orbit</ToolButton>
-        <ToolButton active={tool==="pen"} onClick={()=>chooseTool("pen")} label="Freehand pen"><PenLine size={19}/>Pen</ToolButton>
-        <ToolButton active={tool==="line"} onClick={()=>chooseTool("line")} label="Straight point-to-point line"><Slash size={19}/>Line</ToolButton>
-        <ToolButton active={tool==="ruler"} onClick={()=>chooseTool("ruler")} label="Scale"><Ruler size={19}/>Scale</ToolButton>
-        <ToolButton active={tool==="triangle"} onClick={()=>chooseTool("triangle")} label="Three-point triangle"><Triangle size={19}/>Triangle</ToolButton>
-        <ToolButton active={tool==="protractor"} onClick={()=>chooseTool("protractor")} label="Three-point angle measurement"><DraftingCompass size={19}/>Angle</ToolButton>
-        <ToolButton active={tool==="eraser"} onClick={()=>chooseTool("eraser")} label="Click to erase a line; drag to erase a portion"><Eraser size={19}/>Eraser</ToolButton>
+        <ToolButton active={tool==="pen"} onClick={()=>chooseTool(tool==="pen"?"orbit":"pen")} label="Freehand pen"><PenLine size={19}/>Pen</ToolButton>
+        <ToolButton active={tool==="line"} onClick={()=>chooseTool(tool==="line"?"orbit":"line")} label="Straight point-to-point line"><Slash size={19}/>Line</ToolButton>
+        <ToolButton active={tool==="ruler"} onClick={()=>chooseTool(tool==="ruler"?"orbit":"ruler")} label="Scale"><Ruler size={19}/>Scale</ToolButton>
+        <ToolButton active={tool==="triangle"} onClick={()=>chooseTool(tool==="triangle"?"orbit":"triangle")} label="Three-point triangle"><Triangle size={19}/>Triangle</ToolButton>
+        <ToolButton active={tool==="protractor"} onClick={()=>chooseTool(tool==="protractor"?"orbit":"protractor")} label="Three-point angle measurement"><DraftingCompass size={19}/>Angle</ToolButton>
+        <ToolButton active={tool==="eraser"} onClick={()=>chooseTool(tool==="eraser"?"orbit":"eraser")} label="Click to erase a line; drag to erase a portion"><Eraser size={19}/>Eraser</ToolButton>
       </div>
       <div className="classroom-tool-section classroom-instrument-controls">
         <div className="classroom-section-title"><Ruler size={15}/> Teaching instruments</div>
@@ -861,11 +870,28 @@ export function ClassroomApp(){
         </div>
         <p className="classroom-hint">{view==="inside"?"Inside: scroll / pinch to zoom from the center toward the inner surface. Shape ON paints on the inner wall.":"Outside: scroll / pinch to zoom. N/S/E/W moves across the complete visible hemisphere."}</p>
       </div>
-      <div className="classroom-tool-section"><div className="classroom-section-title"><Palette size={15}/> Ink color</div>
-        <div className="classroom-swatches">{PALETTE.map(c=><button key={c} type="button"
-          className={"classroom-swatch"+(color===c?" on":"")} aria-label={"Color "+c}
-          style={{background:c}} onClick={()=>setColor(c)}/>)}
-          <label className="classroom-color-input" title="Custom color"><input type="color" value={color} onChange={e=>setColor(e.target.value)}/></label>
+      <div className="classroom-tool-section classroom-color-section"><div className="classroom-section-title"><Palette size={15}/> Ink color</div>
+        <div className="classroom-current-color">
+          <label className="classroom-current-color-picker" title="Edit selected color">
+            <span className="classroom-current-color-preview" style={{background:color}}/>
+            <input type="color" value={color} aria-label="Select drawing color"
+              onChange={e=>applyColor(e.target.value)}/>
+          </label>
+          <div className="classroom-current-color-text">
+            <strong>Selected drawing color</strong>
+            <input type="text" spellCheck={false} aria-label="Editable color hex code"
+              maxLength={7} value={hexDraft} onChange={e=>{
+                const value=e.target.value;
+                setHexDraft(value);
+                if(/^#[0-9a-fA-F]{6}$/.test(value))applyColor(value);
+              }} onBlur={()=>setHexDraft(color)} />
+          </div>
+          <span className="classroom-color-live" aria-live="polite">ACTIVE</span>
+        </div>
+        <div className="classroom-swatches">{[...PALETTE,...recentColors.filter(c=>!PALETTE.includes(c))].map(c=><button key={c} type="button"
+          className={"classroom-swatch"+(color===c?" on":"")} aria-label={"Select color "+c}
+          aria-pressed={color===c} title={c}
+          style={{background:c}} onClick={()=>applyColor(c)}/>)}
         </div>
         <label className="classroom-width">Stroke width <output>{width}px</output>
           <input type="range" min="1" max="9" value={width} onChange={e=>setWidth(Number(e.target.value))}/></label>

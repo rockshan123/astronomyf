@@ -106,6 +106,28 @@ function Sidebar() {
   const [q, setQ] = useState("");
   const [showToggles, setShowToggles] = useState(false);
   const [closedGroups, setClosedGroups] = useState<Set<Group>>(() => new Set());
+  const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [beforePreset, setBeforePreset] = useState<Record<string, boolean> | null>(null);
+  const isMatchingPreset = (name: string, ids: readonly string[] | null) =>
+    activePreset === name && LAYERS.every(l =>
+      !!st.visible[l.id] === (ids ? ids.includes(l.id) : !!st.custom[l.id])
+    );
+  const togglePreset = (name: string, ids: readonly string[] | null) => {
+    if (isMatchingPreset(name, ids)) {
+      st.set({ visible: beforePreset ?? st.custom, selected: null });
+      setBeforePreset(null);
+      setActivePreset(null);
+      return;
+    }
+    if (activePreset === null) setBeforePreset({ ...st.visible });
+    st.set({
+      visible: ids
+        ? Object.fromEntries(LAYERS.map(l => [l.id, ids.includes(l.id)]))
+        : { ...st.custom },
+      selected: null,
+    });
+    setActivePreset(name);
+  };
   const flipGroup = (group: Group) => setClosedGroups((previous) => { const next = new Set(previous); next.has(group) ? next.delete(group) : next.add(group); return next; });
   const ql = q.trim().toLowerCase();
   const strip = (s: string) => s.replace(/[\u064B-\u0652\u0670]/g, "");
@@ -126,12 +148,13 @@ function Sidebar() {
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search Arabic / English…" aria-label="Search layers" />
       </div>
       <div className="presets">
-        {Object.entries(PRESETS).map(([name, ids]) => (
-          <button key={name} className="chip" onClick={() => {
-            if (ids) st.set({ visible: Object.fromEntries(LAYERS.map((l) => [l.id, ids.includes(l.id)])) });
-            else st.set({ visible: st.custom });
-          }}>{name}</button>
-        ))}
+        {Object.entries(PRESETS).map(([name, ids]) => {
+          const active = isMatchingPreset(name, ids);
+          return <button key={name} type="button"
+            className={`chip ${active ? "chip-on" : ""}`}
+            aria-pressed={active}
+            onClick={() => togglePreset(name, ids)}>{name}</button>;
+        })}
         <button className={`chip ${st.touring ? "chip-on" : ""}`} onClick={() => st.set({ touring: !st.touring })}>{st.touring ? "Stop tour" : "▶ Guided tour"}</button>
       </div>
       <div className="side-scroll">
@@ -158,12 +181,23 @@ function Sidebar() {
                   onMouseEnter={() => st.set({ hovered: l.id })} onMouseLeave={() => st.set({ hovered: null })}>
                   <input type="checkbox" checked={!!st.visible[l.id]} onChange={() => st.toggleLayer(l.id)} aria-label={`Show ${l.en}`} />
                   <span className="sw" style={{ background: l.color }} />
-                  <button className="row-name" onClick={() => st.set({ selected: l.id })}>
+                  <button className="row-name" aria-pressed={st.selected === l.id}
+                    onClick={() => st.set({ selected: st.selected === l.id ? null : l.id })}>
                     <span className="num">{String(l.num).padStart(2, "0")}</span>
                     <span className="ar" dir="rtl">{l.ar}</span>
                     <span className="en">{l.en}{l.status !== "computed" && <em className="badge">{l.status === "review" ? "under review" : "schematic"}</em>}</span>
                   </button>
-                  <button className="mini" title="Solo" aria-label="Solo" onClick={() => st.solo(l.id)}><Crosshair size={13} /></button>
+                  <button className="mini" title="Solo / deselect"
+                    aria-pressed={st.selected === l.id && LAYERS.every(item => !!st.visible[item.id] === (item.id === l.id))}
+                    aria-label="Solo / deselect"
+                    onClick={() => {
+                      const alreadySolo = st.selected === l.id &&
+                        LAYERS.every(item => !!st.visible[item.id] === (item.id === l.id));
+                      if (alreadySolo) st.set({ visible: { ...st.custom }, selected: null });
+                      else st.solo(l.id);
+                      setActivePreset(null);
+                      setBeforePreset(null);
+                    }}><Crosshair size={13} /></button>
                   <button className="mini" title="Focus camera" aria-label="Focus camera" onClick={() => focus(l.id)}><Focus size={13} /></button>
                 </div>
               ))}

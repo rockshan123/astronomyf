@@ -476,3 +476,186 @@
   .sky-top .sky-icon,.sky-top .classroom-nav-link,.sky-side .chip,
   .sky-bottom .sky-btn{transition:none!important;transform:none!important}
 }
+
+
+/* ==============================================================
+   2026-10-20 — usability hotfix: contrast, scrolling, toolbar visibility
+   The glass appearance stays, but the text and all controls are readable.
+   ============================================================== */
+.sky-root{
+  height:100vh;
+  height:100dvh;
+  min-height:0;
+  overflow:hidden;
+  isolation:isolate;
+}
+.sky-canvas{z-index:1}
+.sky-nebula{z-index:0}
+.sky-top{z-index:40;flex-shrink:0}
+.sky-side{
+  z-index:25;
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+  height:auto;
+  overflow:hidden;
+}
+.sky-drawer{
+  z-index:29;
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-y;
+}
+.sky-bottom{
+  position:absolute;
+  z-index:35;
+  display:flex;
+  flex-wrap:nowrap;
+  align-items:center;
+  min-height:58px;
+  min-width:0;
+  max-height:calc(100dvh - 30px);
+  overflow-x:auto;
+  overflow-y:hidden;
+  scrollbar-width:thin;
+  scrollbar-color:#6185bc transparent;
+  overscroll-behavior-x:contain;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-x;
+}
+.sky-bottom .bgrp{flex-shrink:0}
+.sky-bottom .bgrp.grow{flex:1 0 250px}
+.sky-side .side-scroll{
+  flex:1 1 auto;
+  min-height:0;
+  height:0;
+  max-height:100%;
+  overflow-y:auto!important;
+  overflow-x:hidden;
+  scrollbar-width:thin;
+  scrollbar-color:#6985a9 rgba(229,240,250,.28);
+  overscroll-behavior-y:contain;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-y;
+  padding-bottom:24px;
+}
+.sky-side .presets,.sky-side .side-search{flex-shrink:0}
+.sky-side .grp{width:100%;min-width:0}
+.sky-side .grp-head{color:#21364f}
+.sky-side .grp-chevron{color:#284e76}
+.sky-side .grp-collapse .muted,.sky-side .grp-head .muted,
+.sky-side .row-name .num,.sky-side .row-name .en,
+.sky-side .equator-note,.sky-side .xray-toggle small{
+  color:#2d4562!important;
+  opacity:1;
+}
+.sky-side .row-name .ar,
+.sky-side .grp-head .ar{color:#14375e!important}
+.sky-side .grp-head .ar{color:#1556a0!important}
+.sky-side .row-name .en{font-weight:600;font-size:11px}
+.sky-side .row-name .num{font-weight:750}
+.sky-side .row-name .ar{font-weight:750}
+.sky-side .row-name{color:#17344e}
+.sky-side .row-name[aria-pressed="true"]{
+  border-radius:9px;
+  background:rgba(77,137,233,.16);
+  box-shadow:inset 0 0 0 1px rgba(49,115,204,.33);
+}
+.sky-side .row-sel{
+  background:rgba(104,164,242,.22)!important;
+  outline:1px solid rgba(59,119,214,.6);
+}
+.sky-side .grp-actions button,.sky-side .mini{
+  color:#214e82!important;
+  font-weight:750;
+}
+.sky-side .mini[aria-pressed="true"]{
+  color:white!important;
+  background:linear-gradient(145deg,#6eabff,#376ff4);
+}
+.sky-side .chip{
+  color:#2a4665;
+  font-weight:700;
+}
+.sky-side .chip.chip-on{
+  color:#fff!important;
+  background:linear-gradient(145deg,#72b2ff,#3473f3)!important;
+  box-shadow:0 5px 14px rgba(44,112,210,.25);
+}
+.sky-side .presets .chip[aria-pressed="true"]{
+  border-color:#82bcff;
+}
+.sky-side .side-search input{color:#18344f!important}
+.sky-side .side-search input::placeholder{color:#536d8a!important;opacity:1}
+.sky-side .toggles,.sky-side .tg,.sky-side .loc label,
+.sky-side .view-options,.sky-side .equator-note{
+  color:#25405c;
+}
+.sky-side .xray-toggle{color:#24405d!important}
+.sky-bottom,.sky-bottom .date,.sky-bottom .slider{
+  color:#243e5a;
+}
+.sky-bottom .muted{color:#35516f!important}
+.sky-bottom .sky-btn,.sky-bottom select{color:#25486e}
+.sky-bottom input[type=range]{accent-color:#397ffb}
+.sky-drawer .muted,.sky-drawer .small{color:#35516d!important}
+.glass::before{opacity:.36}
+.sky-top >*,.sky-side >*,.sky-drawer >*,.sky-bottom >*{
+  position:relative;
+  z-index:1;
+}
+@media(min-width:1101px){
+  .sky-side{
+    top:72px;
+    bottom:86px;
+    width:clamp(315px,23.5vw,370px);
+  }
+  .sky-drawer{top:72px;bottom:86px}
+  .sky-bottom{
+    left:10px;
+    right:10px;
+    bottom:10px;
+  }
+}
+@media(max-width:1100px){
+  .sky-side{
+    top:66px;
+    bottom:calc(91px + env(safe-area-inset-bottom));
+    height:auto;
+    max-height:none;
+  }
+  .sky-bottom{
+    position:absolute;
+    left:max(7px,env(safe-area-inset-left));
+    right:max(7px,env(safe-area-inset-right));
+    bottom:calc(8px + env(safe-area-inset-bottom));
+    min-height:56px;
+    width:auto;
+    max-width:none;
+    flex-wrap:nowrap;
+    overflow-x:auto;
+  }
+  .sky-bottom .bgrp.grow{flex:0 0 270px}
+}
+@media(max-width:620px){
+  .sky-top{min-height:45px}
+  .sky-side{
+    top:60px;
+    bottom:calc(83px + env(safe-area-inset-bottom));
+    width:min(345px,calc(100vw - 16px));
+  }
+  .sky-bottom{
+    min-height:53px;
+    max-height:70px;
+    padding:6px;
+    bottom:calc(7px + env(safe-area-inset-bottom));
+  }
+  .sky-bottom .bgrp.grow{min-width:250px}
+}
+@media(max-height:470px) and (orientation:landscape){
+  .sky-side{top:55px;bottom:76px}
+  .sky-drawer{top:55px;bottom:76px}
+  .sky-bottom{bottom:4px;min-height:45px;max-height:54px}
+}

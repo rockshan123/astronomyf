@@ -917,3 +917,98 @@
 @media(prefers-reduced-motion:reduce){
   .classroom-v2 button,.classroom-v2 .classroom-swatch{transition:none!important;transform:none!important}
 }
+
+
+/* Current ink color remains visible and editable while teaching. */
+.classroom-v2 .classroom-color-section .classroom-swatches{
+  display:flex;
+  flex-wrap:wrap;
+  gap:9px;
+  margin-top:12px;
+}
+.classroom-v2 .classroom-current-color{
+  display:flex;
+  align-items:center;
+  gap:11px;
+  padding:10px;
+  min-width:0;
+  background:linear-gradient(138deg,rgba(249,254,255,.88),rgba(207,229,252,.68));
+  border:1px solid rgba(141,182,233,.56);
+  border-radius:16px;
+  box-shadow:0 5px 16px rgba(38,89,150,.13),inset 0 1px rgba(255,255,255,.87);
+}
+.classroom-v2 .classroom-current-color-picker{
+  position:relative;
+  width:44px;height:44px;
+  flex:none;
+  border-radius:15px;
+  overflow:hidden;
+  border:3px solid #fff;
+  cursor:pointer;
+  box-shadow:0 4px 12px rgba(13,45,98,.19),0 0 0 1px rgba(85,146,225,.29);
+}
+.classroom-v2 .classroom-current-color-preview{
+  position:absolute;inset:0;
+  border-radius:12px;
+  pointer-events:none;
+}
+.classroom-v2 .classroom-current-color-picker input[type=color]{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  opacity:0;
+  cursor:pointer;
+}
+.classroom-v2 .classroom-current-color-text{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  flex:1;
+  min-width:0;
+}
+.classroom-v2 .classroom-current-color-text strong{
+  font-size:10px;
+  color:#245074;
+  font-weight:800;
+}
+.classroom-v2 .classroom-current-color-text input{
+  width:100%;
+  max-width:115px;
+  min-height:30px;
+  border:1px solid #9fc1e8;
+  border-radius:9px;
+  background:#f7fbff;
+  color:#153d6a;
+  font-size:12px;
+  font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
+  font-variant-numeric:tabular-nums;
+  text-transform:uppercase;
+  letter-spacing:.025em;
+  outline-offset:2px;
+  padding:4px 8px;
+}
+.classroom-v2 .classroom-current-color-text input:focus{
+  outline:2px solid #4b8cff;
+}
+.classroom-v2 .classroom-color-live{
+  flex:none;
+  align-self:flex-start;
+  padding:3px 5px;
+  border-radius:7px;
+  background:#dceeff;
+  color:#2468af;
+  font-size:8px;
+  font-weight:800;
+  letter-spacing:.05em;
+}
+.classroom-v2 .classroom-swatch[aria-pressed=true]{
+  outline:2px solid #3484ff;
+  outline-offset:2px;
+  box-shadow:0 0 15px rgba(60,141,255,.35);
+}
+@media(max-width:620px){
+  .classroom-v2 .classroom-current-color{padding:8px;gap:9px}
+  .classroom-v2 .classroom-current-color-picker{width:39px;height:39px}
+  .classroom-v2 .classroom-color-live{font-size:7px}
+}
