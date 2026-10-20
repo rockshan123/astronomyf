@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Link } from "@tanstack/react-router";
-import { useSky, TOGGLES, type ToggleKey, type Lang } from "@/store/useSky";
+import { useSky, TOGGLES, type ToggleKey } from "@/store/useSky";
 import { LAYERS, GROUPS, PRESETS, LAYER_BY_ID, type Group } from "@/data/layers";
 import { buildLayer } from "@/lib/astronomy/layerGeometry";
 import { computeSky, TARGET } from "@/lib/astronomy/sky";
@@ -87,7 +87,7 @@ export function SkyApp() {
 }
 
 function TopBar({ onHelp, onPresent }: { onHelp: () => void; onPresent: () => void }) {
-  const { lang, set, sidebarOpen } = useSky();
+  const { set, sidebarOpen } = useSky();
   return (
     <header className="sky-top glass">
       <button className="sky-icon" aria-label="Toggle layers" onClick={() => set({ sidebarOpen: !sidebarOpen })}><PanelLeft size={18} /></button>
@@ -95,11 +95,6 @@ function TopBar({ onHelp, onPresent }: { onHelp: () => void; onPresent: () => vo
         <span className="brand-en">TASHRIHUL AFLAK 3D</span>
       </div>
       <Link to="/classroom" className="sky-btn classroom-nav-link"><PenLine size={14} /> Classroom</Link>
-      <div className="seg" role="group" aria-label="Language">
-        {(["ml", "ar", "en"] as Lang[]).map((l) => (
-          <button key={l} className={lang === l ? "on" : ""} onClick={() => set({ lang: l })}>{l === "ml" ? "മലയാളം" : l === "ar" ? "العربية" : "English"}</button>
-        ))}
-      </div>
       <button className="sky-icon" aria-label="Help" onClick={onHelp}><HelpCircle size={18} /></button>
       <button className="sky-icon" aria-label="Presentation mode" onClick={onPresent}><MonitorPlay size={18} /></button>
     </header>

@@ -61,14 +61,12 @@ export const useSky = create<State>()(
     }),
     {
       name: "tashrihul-aflak-3d",
-      version: 2,
+      version: 3,
       migrate: (persisted, version) => {
-        if (version < 2 && persisted && typeof persisted === "object") {
-          return { ...(persisted as Partial<State>), lat: 0 } as State;
-        }
-        return persisted as State;
+        const current = (persisted && typeof persisted === "object" ? persisted : {}) as Partial<State>;
+        return { ...current, ...(version < 2 ? { lat: 0 } : {}), lang: "en" } as State;
       },
-      partialize: (s) => ({ visible: s.visible, custom: s.custom, opacity: s.opacity, toggles: s.toggles, lat: s.lat, lon: s.lon, autoOrbit: s.autoOrbit, orbitSpeed: s.orbitSpeed, quality: s.quality, lang: s.lang, xray: s.xray }),
+      partialize: (s) => ({ visible: s.visible, custom: s.custom, opacity: s.opacity, toggles: s.toggles, lat: s.lat, lon: s.lon, autoOrbit: s.autoOrbit, orbitSpeed: s.orbitSpeed, quality: s.quality, xray: s.xray }),
     },
   ),
 );

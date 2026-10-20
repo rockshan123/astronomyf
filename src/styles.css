@@ -260,3 +260,219 @@
   .sky-side,.sky-drawer{bottom:74px;top:56px}
   .sky-bottom{bottom:4px}
 }
+
+
+/* ==============================================================
+   NEO-TACTILE / electric-ice glass design system
+   Shared visual language between the 3D observatory and classroom.
+   ================================================================ */
+:root{
+  --primary:#477ffe;
+  --primary-foreground:#f9fcff;
+  --accent:#5bdcf1;
+  --ring:#55b9f9;
+  --background:#060e1c;
+  --foreground:#edf5ff;
+  --card:rgba(160,191,220,.35);
+  --muted:rgba(200,222,243,.18);
+  --muted-foreground:#b8c7dd;
+  --border:rgba(194,217,245,.22);
+  --input:rgba(171,207,240,.3);
+  --radius:1.25rem;
+  --neo-blue:#477fff;
+  --neo-cyan:#52eaff;
+  --neo-deep:#07101f;
+  --neo-ink:#1d3552;
+  --neo-silver:#cbd8e8;
+  --neo-specular:rgba(255,255,255,.78);
+  --neo-shadow:0 18px 48px rgba(0,3,16,.38),0 5px 17px rgba(9,28,59,.20);
+}
+.sky-root{
+  background:
+    radial-gradient(ellipse 65% 57% at -6% 4%,rgba(157,202,243,.38) 0,transparent 68%),
+    radial-gradient(ellipse 50% 42% at 96% 92%,rgba(30,170,221,.18) 0,transparent 74%),
+    linear-gradient(142deg,#1c334c 0%,#0a1629 40%,#050a14 75%,#060e1b 100%);
+}
+.sky-nebula{
+  opacity:.72;
+  background:
+    radial-gradient(ellipse 34% 42% at 8% 17%,rgba(177,221,249,.22),transparent 82%),
+    radial-gradient(ellipse 33% 25% at 96% 88%,rgba(0,232,255,.14),transparent 80%);
+}
+.glass{
+  position:relative;
+  background:
+    linear-gradient(133deg,rgba(247,252,255,.78) 0%,rgba(201,216,234,.65) 37%,rgba(142,164,187,.59) 71%,rgba(117,149,171,.60) 100%);
+  border:1px solid rgba(249,253,255,.62);
+  border-radius:24px;
+  -webkit-backdrop-filter:blur(34px) saturate(170%);
+  backdrop-filter:blur(34px) saturate(170%);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,.85),
+    inset 0 -2px 1px rgba(55,245,253,.10),
+    var(--neo-shadow);
+}
+.glass::before{
+  inset:0;
+  z-index:0;
+  background:linear-gradient(148deg,rgba(255,255,255,.24),transparent 28%,transparent 76%,rgba(80,232,255,.13));
+  opacity:1;
+  border-radius:inherit;
+}
+.sky-top,.sky-side,.sky-drawer,.sky-bottom,.sky-modal .help{
+  --foreground:var(--neo-ink);
+  --muted-foreground:#617792;
+  --muted:rgba(241,247,253,.65);
+  --border:rgba(115,144,175,.27);
+  --input:rgba(109,150,190,.36);
+  color:var(--neo-ink);
+}
+.sky-top{
+  min-height:54px;
+  padding:9px 13px;
+  gap:10px;
+  box-shadow:var(--neo-shadow),inset 0 1px rgba(255,255,255,.88);
+}
+.sky-top .brand-en{
+  color:#172a45;
+  font-family:"IBM Plex Sans",system-ui,sans-serif;
+  letter-spacing:.14em;
+  font-weight:750;
+  font-size:clamp(11px,1.16vw,16px);
+  text-shadow:0 1px 0 rgba(255,255,255,.34);
+}
+.sky-top .sky-icon,.sky-side .mini,.sky-drawer .sky-icon,.sky-bottom .sky-icon{
+  color:#3c5676;
+  background:linear-gradient(145deg,rgba(253,255,255,.73),rgba(211,224,239,.45));
+  border:1px solid rgba(255,255,255,.46);
+  box-shadow:0 3px 8px rgba(25,43,77,.11),inset 0 1px rgba(255,255,255,.9);
+  border-radius:11px;
+}
+.sky-top .sky-icon:hover,.sky-side .mini:hover,.sky-drawer .sky-icon:hover,.sky-bottom .sky-icon:hover{
+  color:#2459b8;
+  background:#f4faff;
+  transform:translateY(-1px);
+}
+.sky-top .classroom-nav-link{
+  min-height:37px;
+  border:1px solid rgba(141,183,255,.76);
+  border-radius:14px;
+  padding:8px 15px;
+  color:#fff;
+  font-size:12px;
+  font-weight:700;
+  background:linear-gradient(137deg,#65a2ff 0%,#477cfa 49%,#315def 100%);
+  box-shadow:0 5px 13px rgba(37,90,206,.30),inset 0 1.5px rgba(255,255,255,.34);
+  transition:transform .2s,box-shadow .2s,background .2s;
+}
+.sky-top .classroom-nav-link:hover{
+  transform:translateY(-2px);
+  color:white;
+  border-color:#c4ebff;
+  background:linear-gradient(130deg,#71c4ff,#497efc);
+  box-shadow:0 6px 19px rgba(35,117,231,.42),0 0 16px rgba(84,236,255,.24);
+}
+.sky-side,.sky-drawer{
+  border-radius:27px;
+  box-shadow:var(--neo-shadow),inset 0 1.5px rgba(255,255,255,.84),inset -1px -1px rgba(72,222,251,.16);
+}
+.sky-bottom{
+  border-radius:22px;
+  min-height:59px;
+  box-shadow:0 15px 42px rgba(0,5,15,.32),inset 0 1px rgba(255,255,255,.84);
+}
+.side-search,.sky-side .xray-toggle,.sky-side .loc input,.sky-side .loc select{
+  background:rgba(247,250,255,.56);
+  border:1px solid rgba(137,169,202,.34);
+  border-radius:13px;
+  box-shadow:inset 0 2px 7px rgba(61,101,151,.09),0 1px rgba(255,255,255,.52);
+  color:#284160;
+}
+.side-search:focus-within{border-color:#568bf6;box-shadow:0 0 0 3px rgba(85,156,255,.15)}
+.side-search input{color:#18314c}
+.side-search input::placeholder{color:#7e90a7}
+.sky-side .chip,.sky-side .grp-actions button,.sky-drawer .drawer-actions button,
+.sky-drawer .sky-btn,.sky-bottom .sky-btn,.sky-bottom select{
+  color:#294664;
+  border:1px solid rgba(146,176,209,.43);
+  border-radius:12px;
+  background:linear-gradient(145deg,rgba(255,255,255,.73),rgba(220,231,244,.55));
+  box-shadow:0 3px 10px rgba(31,64,110,.11),inset 0 1px rgba(255,255,255,.82);
+  transition:transform .18s,box-shadow .18s,background .18s;
+}
+.sky-side .chip:hover,.sky-side .grp-actions button:hover,.sky-drawer .sky-btn:hover,
+.sky-bottom .sky-btn:hover{
+  color:#235ea6;transform:translateY(-1px);
+  background:rgba(246,252,255,.94);
+  box-shadow:0 6px 14px rgba(31,64,110,.16);
+}
+.sky-side .chip-on,.sky-bottom .sky-btn.on,.sky-side .chip.chip-on{
+  background:linear-gradient(140deg,#6db0ff,#4079fa);
+  color:#fff;
+  border-color:rgba(137,195,255,.89);
+  box-shadow:0 4px 15px rgba(53,108,218,.30),inset 0 1px rgba(255,255,255,.27);
+}
+.sky-side .grp-head .ar,.sky-drawer .ar-title{color:#286bc3}
+.sky-side .grp-chevron,.sky-side .row-name .num{color:#57718d}
+.sky-side .row{border-radius:12px}
+.sky-side .row:hover{background:rgba(239,247,255,.49)}
+.sky-side .row-sel{
+  outline:1px solid rgba(91,144,240,.5);
+  background:linear-gradient(120deg,rgba(224,237,255,.88),rgba(188,217,253,.48));
+}
+.sky-side .row-name .ar{color:#254361}
+.sky-side .row-name .en{color:#637e9a}
+.sky-side .review{color:#2368c6}
+.sky-drawer h3,.sky-drawer p{color:#2d4866}
+.sky-drawer .ref img{border-radius:14px;box-shadow:0 4px 16px rgba(22,47,80,.16)}
+.sky-drawer .measure{
+  background:rgba(244,250,255,.55);
+  border:1px solid rgba(166,199,228,.34);
+  border-radius:13px;
+}
+.sky-drawer .measure b{color:#2765d4}
+.sky-bottom .bgrp{
+  border-radius:12px;
+  padding:3px 4px;
+}
+.sky-bottom .bgrp .slider{color:#526983}
+.sky-bottom select,.sky-drawer select,.sky-side select{
+  color:#315172;
+  background:rgba(251,253,255,.73);
+  border:1px solid rgba(117,160,206,.37);
+  border-radius:10px;
+}
+.sky-side input[type="checkbox"],.sky-bottom input[type="checkbox"],
+.sky-drawer input[type="checkbox"],.sky-bottom input[type="range"],.sky-drawer input[type="range"],
+.sky-side input[type="range"]{accent-color:#487ffc}
+.sky-bottom input[type="range"]{
+  min-height:26px;
+  background:transparent;
+  cursor:pointer;
+}
+.sky-modal .help{
+  border-radius:28px;
+  padding:28px;
+  background:linear-gradient(138deg,rgba(246,250,255,.91),rgba(182,205,231,.91));
+}
+.sky-modal .help h2{color:#1e477d}
+.sky-modal .help li{color:#314c68}
+.sky-modal .help b{color:#1f4f9b}
+.sky-modal .help .close{z-index:1}
+/* Reference-image microinteractions, without added GPU work. */
+@media(hover:hover){
+  .sky-top .sky-icon,.sky-side .chip,.sky-side .mini,.sky-bottom .sky-btn{
+    will-change:transform;
+  }
+}
+@media(max-width:620px){
+  .sky-top{min-height:48px;gap:5px;padding:6px 7px}
+  .sky-top .brand-en{font-size:clamp(9px,2.8vw,13px);letter-spacing:.045em}
+  .sky-top .classroom-nav-link{min-height:33px;padding:6px 9px;font-size:10px}
+  .sky-side,.sky-drawer{border-radius:20px}
+  .sky-bottom{border-radius:17px;min-height:52px}
+}
+@media(prefers-reduced-motion:reduce){
+  .sky-top .sky-icon,.sky-top .classroom-nav-link,.sky-side .chip,
+  .sky-bottom .sky-btn{transition:none!important;transform:none!important}
+}
