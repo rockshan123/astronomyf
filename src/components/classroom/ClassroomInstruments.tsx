@@ -32,7 +32,7 @@ export function ClassroomInstrument({
   ruler?:RulerPose;onRulerChange?:(next:RulerPose)=>void;
   onCommitAngle?:(angle:AngleDrawing)=>void;stageSize:[number,number];
 }){
-  const [localRuler,setLocalRuler]=useState<RulerPose>({x:330,y:140,angle:0,length:360,edge:"nearest"});
+  const [localRuler,setLocalRuler]=useState<RulerPose>({x:Math.max(24,stageSize[0]*.30),y:Math.max(75,stageSize[1]*.17),angle:0,length:360,edge:"nearest"});
   const currentRuler=ruler??localRuler;
   const changeRuler=(next:RulerPose)=>{(onRulerChange??setLocalRuler)(next);};
   const [pro,setPro]=useState<ProtractorState>({
@@ -99,7 +99,14 @@ export function ClassroomInstrument({
           onClick={e=>{e.stopPropagation();onClose();}}>×</button>
       </div>
       <div className="classroom-ruler-face" style={{height:65,width:currentRuler.length+32}}>
-        <div className="classroom-ruler-units">{(currentRuler.length/17.5).toFixed(1)} diagram cm · edge snap</div>
+        <div className="classroom-ruler-units">inch / cm · diagram scale</div>
+        <div className="classroom-ruler-inch-ticks" style={{width:currentRuler.length}}>
+          {Array.from({length:Math.min(4000,Math.ceil(currentRuler.length/5.55625)+1)},(_,i)=>i).map(i=>(
+            <span key={i} className={i%8===0?"major":i%4===0?"medium":"minor"} style={{left:i*5.55625}}>
+              {i%8===0&&<small>{i/8}</small>}
+            </span>
+          ))}
+        </div>
         <div className="classroom-ruler-ticks" style={{width:currentRuler.length}}>
           {Array.from({length:Math.min(3500,Math.ceil(currentRuler.length/3.5)+1)},(_,i)=>i).map(i=>(
             <span key={i} className={i%5===0?"major":i%2===0?"medium":"minor"} style={{left:i*3.5}}>

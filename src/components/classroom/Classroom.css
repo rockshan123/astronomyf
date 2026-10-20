@@ -1012,3 +1012,235 @@
   .classroom-v2 .classroom-current-color-picker{width:39px;height:39px}
   .classroom-v2 .classroom-color-live{font-size:7px}
 }
+
+
+/* ===== Whiteboard reference UI · unboxed independent overlays ===== */
+/* The teaching sphere stays untouched; only drawing controls are restyled. */
+.classroom-root.classroom-v2 .classroom-floating-toolbar{
+  position:absolute!important;
+  z-index:25!important;
+  bottom:calc(10px + env(safe-area-inset-bottom));
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  flex-wrap:nowrap;
+  justify-content:center;
+  align-items:flex-end;
+  gap:clamp(3px,.53vw,12px);
+  width:max-content;
+  max-width:calc(100vw - 18px);
+  min-height:67px;
+  overflow-x:auto;overflow-y:hidden;
+  padding:4px 3px;
+  border:0!important;border-radius:0!important;
+  box-shadow:none!important;
+  background:transparent!important;
+  backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+  scrollbar-width:thin;
+  overscroll-behavior-x:contain;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-x;
+}
+.classroom-v2 .classroom-floating-toolbar .classroom-tool,
+.classroom-v2 .classroom-floating-toolbar .classroom-toolbar-icon{
+  appearance:none;
+  position:relative;
+  flex:0 0 auto;
+  display:flex!important;
+  flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:5px;
+  width:clamp(44px,4.4vw,67px);
+  min-width:44px;height:60px;min-height:60px;
+  padding:5px 3px;
+  border:0!important;border-radius:13px;
+  background:transparent!important;
+  color:#f5f9ff!important;
+  box-shadow:none!important;
+  text-shadow:0 1px 3px rgba(1,9,28,.82);
+  font-size:10px;font-weight:650;
+  cursor:pointer;
+  transition:background .16s,color .16s,transform .16s;
+}
+.classroom-v2 .classroom-floating-toolbar svg{
+  width:23px;height:23px;stroke-width:2;
+  filter:drop-shadow(0 1px 3px rgba(0,0,0,.36));
+}
+.classroom-v2 .classroom-floating-toolbar .classroom-toolbar-icon small{
+  font-size:10px;line-height:1.1;font-weight:650;
+}
+.classroom-v2 .classroom-floating-toolbar .classroom-tool.is-active,
+.classroom-v2 .classroom-floating-toolbar .classroom-toolbar-icon.is-active{
+  background:#137efa!important;
+  box-shadow:0 3px 14px rgba(16,107,235,.27)!important;
+  color:white!important;text-shadow:none;
+}
+.classroom-v2 .classroom-floating-toolbar .classroom-tool:hover:not(.is-active),
+.classroom-v2 .classroom-floating-toolbar .classroom-toolbar-icon:hover:not(.is-active){
+  background:rgba(255,255,255,.09)!important;
+  transform:translateY(-2px);
+}
+.classroom-v2 .classroom-floating-toolbar button:disabled{
+  opacity:.37;cursor:not-allowed;transform:none!important;
+}
+.classroom-v2 .classroom-tools{
+  position:absolute!important;z-index:22!important;
+  top:auto!important;
+  bottom:89px!important;right:15px!important;left:auto!important;
+  width:min(336px,calc(100vw - 24px))!important;
+  max-height:min(69dvh,630px)!important;
+  height:auto!important;
+  overflow-y:auto!important;overflow-x:hidden!important;
+  display:none!important;
+  padding:16px!important;
+  border:0!important;
+  border-radius:15px!important;
+  background:rgba(11,23,40,.95)!important;
+  backdrop-filter:blur(22px)!important;
+  box-shadow:0 10px 38px rgba(0,0,0,.28)!important;
+}
+.classroom-root[data-panel="tools"] .classroom-tools{
+  display:flex!important;flex-direction:column!important;
+}
+.classroom-v2 .classroom-tools .classroom-panel-head{color:#eef7ff}
+.classroom-v2 .classroom-tools .classroom-panel-head h2,
+.classroom-v2 .classroom-tools .classroom-panel-head p,
+.classroom-v2 .classroom-tools .classroom-section-title,
+.classroom-v2 .classroom-tools .classroom-tool-section .classroom-hint{
+  color:#e5f2ff!important;
+}
+.classroom-v2 .classroom-tools .classroom-section-title{font-weight:750}
+.classroom-v2 .classroom-tools .classroom-hint{opacity:.82}
+.classroom-v2 .classroom-tools .classroom-tool-section{
+  border-color:rgba(206,231,255,.14);
+}
+.classroom-v2 .classroom-layers{
+  bottom:89px!important;
+  z-index:17!important;
+}
+.classroom-v2 .classroom-status{
+  bottom:85px!important;
+  z-index:11!important;
+  max-width:min(480px,calc(100vw - 30px));
+}
+/* Ruler and protractor are silhouettes with transparent centers, not glass cards. */
+.classroom-v2 .classroom-instrument,
+.classroom-v2 .classroom-instrument-protractor.advanced{
+  background:transparent!important;
+  border:0!important;border-radius:0!important;
+  outline:0!important;
+  box-shadow:none!important;
+  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+}
+.classroom-v2 .classroom-instrument-grip{
+  width:max-content;
+  max-width:100%;
+  height:27px;
+  background:rgba(235,243,252,.92)!important;
+  border:0!important;border-radius:15px!important;
+  box-shadow:0 2px 7px rgba(0,0,0,.13)!important;
+  font-size:9px;color:#3e5d7d;
+}
+.classroom-v2 .classroom-ruler-face{
+  background:rgba(229,236,242,.16)!important;
+  box-shadow:none!important;
+  border-top:1px solid rgba(232,241,250,.74)!important;
+  border-bottom:1px solid rgba(232,241,250,.77)!important;
+}
+.classroom-v2 .classroom-ruler-ticks>span{background:#ebf3ff}
+.classroom-v2 .classroom-ruler-ticks>span.major{background:#f8fcff}
+.classroom-v2 .classroom-ruler-ticks small,
+.classroom-v2 .classroom-ruler-units{color:#f5faff;text-shadow:0 1px 3px #071425}
+.classroom-v2 .classroom-protractor-face{
+  filter:drop-shadow(0 2px 8px rgba(0,0,0,.25));
+}
+.classroom-v2 .classroom-instrument-footer{
+  border:0!important;
+  background:transparent!important;
+  color:#f3faff;
+  gap:6px;
+}
+.classroom-v2 .classroom-instrument-footer button,
+.classroom-v2 .classroom-instrument-footer select,
+.classroom-v2 .classroom-instrument-rotate{
+  background:rgba(231,240,251,.95)!important;
+  color:#2867a6!important;
+  border:0!important;border-radius:18px!important;
+  box-shadow:0 2px 7px rgba(0,0,0,.19)!important;
+}
+.classroom-v2 .classroom-compass-svg{
+  position:absolute!important;
+  left:0!important;top:0!important;
+  width:100%!important;height:100%!important;
+  z-index:20!important;
+  overflow:visible!important;
+  pointer-events:none!important;
+}
+.classroom-compass-svg .classroom-compass-actions{pointer-events:visiblePainted}
+@media(max-width:1100px){
+  .classroom-v2 .classroom-floating-toolbar{
+    bottom:calc(4px + env(safe-area-inset-bottom));
+    max-width:calc(100vw - 8px);
+    justify-content:flex-start;gap:3px;
+  }
+  .classroom-v2 .classroom-floating-toolbar .classroom-tool,
+  .classroom-v2 .classroom-floating-toolbar .classroom-toolbar-icon{
+    width:49px;min-width:49px;height:55px;min-height:55px;
+    font-size:9px;
+  }
+  .classroom-v2 .classroom-floating-toolbar .classroom-toolbar-icon small{font-size:9px}
+  .classroom-v2 .classroom-floating-toolbar svg{width:21px;height:21px}
+  .classroom-v2 .classroom-layers{
+    top:auto!important;bottom:80px!important;
+    max-height:min(62dvh,630px)!important;
+  }
+  .classroom-v2 .classroom-tools{
+    bottom:76px!important;
+    max-height:58dvh!important;
+    left:auto!important;right:8px!important;
+    width:min(330px,calc(100vw - 16px))!important;
+  }
+  .classroom-root[data-panel="none"] .classroom-layers,
+  .classroom-root[data-panel="tools"] .classroom-layers{display:none!important}
+  .classroom-root[data-panel="layers"] .classroom-layers{display:flex!important}
+  .classroom-v2 .classroom-status{bottom:75px!important}
+}
+@media(max-width:620px){
+  .classroom-v2 .classroom-floating-toolbar{
+    left:4px;right:4px;transform:none;
+    max-width:none;width:calc(100% - 8px);
+  }
+  .classroom-v2 .classroom-tools{
+    bottom:69px!important;
+    width:calc(100vw - 14px)!important;
+    max-height:55dvh!important;
+  }
+  .classroom-v2 .classroom-layers{
+    bottom:72px!important;
+    max-height:53dvh!important;
+  }
+  .classroom-v2 .classroom-status{bottom:72px!important}
+  .classroom-v2 .classroom-floating-toolbar .classroom-tool,
+  .classroom-v2 .classroom-floating-toolbar .classroom-toolbar-icon{
+    min-width:46px;width:46px;min-height:52px;height:52px;
+    font-size:8px;
+  }
+  .classroom-v2 .classroom-floating-toolbar .classroom-toolbar-icon small{font-size:8px}
+}
+
+/* Dual-scale transparent instrument: relative inch/cm ratio is 2.54. */
+.classroom-v2 .classroom-ruler-inch-ticks{
+  position:absolute;left:17px;right:12px;top:2px;
+  height:24px;pointer-events:none;
+}
+.classroom-v2 .classroom-ruler-inch-ticks span{
+  position:absolute;top:0;width:1px;height:8px;background:#eaf5ff;
+}
+.classroom-v2 .classroom-ruler-inch-ticks span.medium{height:13px}
+.classroom-v2 .classroom-ruler-inch-ticks span.major{height:17px}
+.classroom-v2 .classroom-ruler-inch-ticks small{
+  position:absolute;top:17px;left:-3px;color:#f5fcff;font-size:9px;
+  text-shadow:0 1px 2px #0e2945;
+}
+.classroom-v2 .classroom-ruler-ticks{bottom:3px!important;top:auto!important;height:28px!important}
+.classroom-v2 .classroom-ruler-face{height:72px!important;min-height:72px}

@@ -4,12 +4,13 @@ import { Html, Line, OrbitControls } from "@react-three/drei";
 import { Link } from "@tanstack/react-router";
 import * as THREE from "three";
 import type { OrbitControls as OrbitImpl } from "three-stdlib";
-import { ArrowLeft, Check, Compass, Eraser, Eye, EyeOff, Maximize2, MousePointer2, Palette, PenLine, RotateCcw, Ruler, Slash, Undo2, X, Shapes, Triangle, DraftingCompass } from "lucide-react";
+import { ArrowLeft, Check, Compass, Eraser, Eye, EyeOff, Maximize2, MousePointer2, Palette, PenLine, RotateCcw, Ruler, Slash, Undo2, X, Shapes, Triangle, DraftingCompass, Redo2, Settings2 } from "lucide-react";
 import { LAYERS, type LayerDef } from "@/data/layers";
 import { buildLayer } from "@/lib/astronomy/layerGeometry";
 import { computeSky } from "@/lib/astronomy/sky";
 import { greatCircle, planeNormal, slerpArc, V } from "@/lib/astronomy/math";
 import { ClassroomInstrument, type RulerPose, type AngleDrawing } from "./ClassroomInstruments";
+import { ClassroomCompass, type CompassDrawing } from "./ClassroomCompass";
 import "./Classroom.css";
 
 type Vec = [number,number,number];
@@ -376,6 +377,7 @@ export function ClassroomApp(){
   const [pendingScreenVertices,setPendingScreenVertices]=useState<XY[]>([]);
   const [rulerVisible,setRulerVisible]=useState(false);
   const [protractorVisible,setProtractorVisible]=useState(false);
+  const [compassVisible,setCompassVisible]=useState(false);
   const [rulerPose,setRulerPose]=useState<RulerPose>({x:330,y:140,angle:0,length:360,edge:"nearest"});
   const [hollowPenDraft,setHollowPenDraft]=useState<Vec[]>([]);
   const hollowDraftRef=useRef<Vec[]>([]);
@@ -386,6 +388,7 @@ export function ClassroomApp(){
   const [strokes,setStrokes]=useState<Stroke[]>([]);
   const [drawing,setDrawing]=useState<Stroke|null>(null);
   const [history,setHistory]=useState<Snapshot[]>([]);
+  const [future,setFuture]=useState<Snapshot[]>([]);
   const [info,setInfo]=useState("Draw on the ball · Double-click endpoints to edit · Hide Sphere for circles only.");
   const [eraserCursor,setEraserCursor]=useState<XY|null>(null);
   const cameraRef=useRef<THREE.Camera|null>(null);
@@ -402,7 +405,7 @@ export function ClassroomApp(){
   const gesture=useRef<Gesture|null>(null);
   const nextId=useRef(1);
   const makeId=()=>String(nextId.current++);
-  const snapshot=useCallback(()=>setHistory(old=>[...old,{marks,strokes}]),[marks,strokes]);
+  const snapshot=useCallback(()=>{setHistory(old=>[...old,{marks,strokes}]);setFuture([]);},[marks,strokes]);
 
   const chooseTool=(next:Tool)=>{
     setTool(next);setPending(null);setPendingScreen(null);setPendingVertices([]);setPendingScreenVertices([]);setDrawing(null);setHollowPenDraft([]);hollowDraftRef.current=[];setEdit(null);
@@ -749,9 +752,25 @@ export function ClassroomApp(){
     }
     const previous=history[history.length-1];
     if(!previous)return;
+    setFuture(old=>[...old,{marks,strokes}]);
     setMarks(previous.marks);setStrokes(previous.strokes);
     setHistory(old=>old.slice(0,-1));
     setInfo("Undo successful.");
+  };
+  const redo=()=>{
+    if(!future.length)return;
+    const next=future[future.length-1]!;
+    setHistory(old=>[...old,{marks,strokes}]);
+    setMarks(next.marks);setStrokes(next.strokes);
+    setFuture(old=>old.slice(0,-1));
+    setInfo("Redo successful.");
+  };
+  const addCompassArc=(draw:CompassDrawing)=>{
+    if(draw.points.length<2)return;
+    snapshot();
+    setStrokes(old=>[...old,{id:makeId(),color,width,
+      points:draw.points.map(([x,y]):XY=>[x/stageSize[0],y/stageSize[1]])}]);
+    setInfo("Compass circle / arc drawn accurately on the whiteboard.");
   };
   const clear=()=>{
     if(!marks.length&&!strokes.length&&!pending&&!pendingScreen&&!pendingVertices.length&&!pendingScreenVertices.length)return;
@@ -800,8 +819,34 @@ export function ClassroomApp(){
           stroke="#fff2c2" strokeWidth={2}/>}
       </svg>
       {rulerVisible&&<ClassroomInstrument type="ruler" stageSize={stageSize} ruler={rulerPose} onRulerChange={setRulerPose} onClose={()=>setRulerVisible(false)}/>}
-      {protractorVisible&&<ClassroomInstrument type="protractor" stageSize={stageSize} onCommitAngle={addInstrumentAngle} onClose={()=>setProtractorVisible(false)}/>}
+      {protractorVisible&&<ClassroomInstrument type="protractor" stageSize={stageSize} onCommitAngle={addInstrumentAngle} onClose={()=>setProtractorVisible(false)}/>} 
+      {compassVisible&&<ClassroomCompass stageSize={stageSize} onDraw={addCompassArc} onClose={()=>setCompassVisible(false)}/>}
     </section>
+    <nav className="classroom-floating-toolbar" role="toolbar" aria-label="Whiteboard drawing toolbar">
+      <ToolButton active={tool==="pen"} onClick={()=>chooseTool(tool==="pen"?"orbit":"pen")} label="Pen"><PenLine size={22}/>Pen</ToolButton>
+      <ToolButton active={tool==="eraser"} onClick={()=>chooseTool(tool==="eraser"?"orbit":"eraser")} label="Eraser"><Eraser size={22}/>Eraser</ToolButton>
+      <ToolButton active={tool==="orbit"} onClick={()=>chooseTool("orbit")} label="Select and rotate sphere"><MousePointer2 size={22}/>Select</ToolButton>
+      <ToolButton active={tool==="line"} onClick={()=>chooseTool(tool==="line"?"orbit":"line")} label="Straight line"><Slash size={22}/>Line</ToolButton>
+      <ToolButton active={tool==="triangle"} onClick={()=>chooseTool(tool==="triangle"?"orbit":"triangle")} label="Shape triangle"><Triangle size={22}/>Shape</ToolButton>
+      <button type="button" className={"classroom-toolbar-icon"+(mobilePanel==="tools"?" is-active":"")}
+        aria-label="Show or hide tool settings" aria-expanded={mobilePanel==="tools"}
+        onClick={()=>setMobilePanel(p=>p==="tools"?"none":"tools")}><Settings2 size={22}/><small>Toolbox</small></button>
+      <button type="button" className="classroom-toolbar-icon" aria-label="Undo" disabled={!history.length&&!pending&&!pendingScreen}
+        onClick={undo}><Undo2 size={22}/><small>Undo</small></button>
+      <button type="button" className="classroom-toolbar-icon" aria-label="Redo" disabled={!future.length}
+        onClick={redo}><Redo2 size={22}/><small>Redo</small></button>
+      <button type="button" className={"classroom-toolbar-icon"+(rulerVisible?" is-active":"")}
+        aria-pressed={rulerVisible} aria-label="Toggle transparent ruler"
+        onClick={()=>setRulerVisible(v=>!v)}><Ruler size={22}/><small>Ruler</small></button>
+      <button type="button" className={"classroom-toolbar-icon"+(protractorVisible?" is-active":"")}
+        aria-pressed={protractorVisible} aria-label="Toggle protractor"
+        onClick={()=>setProtractorVisible(v=>!v)}><DraftingCompass size={22}/><small>Angle</small></button>
+      <button type="button" className={"classroom-toolbar-icon"+(compassVisible?" is-active":"")}
+        aria-pressed={compassVisible} aria-label="Toggle compass instrument"
+        onClick={()=>setCompassVisible(v=>!v)}><Compass size={22}/><small>Compass</small></button>
+      <button type="button" className="classroom-toolbar-icon" aria-label="Toggle inside or outside view"
+        onClick={()=>{setView(v=>v==="inside"?"outside":"inside");setPending(null);}}><Eye size={22}/><small>{view==="inside"?"Inside":"Outside"}</small></button>
+    </nav>
     <aside className="classroom-layers classroom-glass" aria-label="Great circle controls">
       <div className="classroom-panel-head"><div><span className="classroom-overline">GEOMETRY</span><h2 dir="rtl">الدَّوَائِرُ الْعِظَامُ</h2><p>10 Great Circles</p></div>
         <div className="classroom-name-actions">
@@ -821,15 +866,6 @@ export function ClassroomApp(){
     <aside className="classroom-tools classroom-glass" aria-label="Whiteboard drawing tools">
       <div className="classroom-panel-head"><div><span className="classroom-overline">YOUR WORKSPACE</span>
         <h2 className="classroom-tool-heading">Teaching tools</h2><p>Sketch · Measure · Explain</p></div><PenLine size={19}/></div>
-      <div className="classroom-toolstrip" role="group" aria-label="Drawing mode">
-        <ToolButton active={tool==="orbit"} onClick={()=>chooseTool("orbit")} label="Rotate the sphere"><MousePointer2 size={19}/>Orbit</ToolButton>
-        <ToolButton active={tool==="pen"} onClick={()=>chooseTool(tool==="pen"?"orbit":"pen")} label="Freehand pen"><PenLine size={19}/>Pen</ToolButton>
-        <ToolButton active={tool==="line"} onClick={()=>chooseTool(tool==="line"?"orbit":"line")} label="Straight point-to-point line"><Slash size={19}/>Line</ToolButton>
-        <ToolButton active={tool==="ruler"} onClick={()=>chooseTool(tool==="ruler"?"orbit":"ruler")} label="Scale"><Ruler size={19}/>Scale</ToolButton>
-        <ToolButton active={tool==="triangle"} onClick={()=>chooseTool(tool==="triangle"?"orbit":"triangle")} label="Three-point triangle"><Triangle size={19}/>Triangle</ToolButton>
-        <ToolButton active={tool==="protractor"} onClick={()=>chooseTool(tool==="protractor"?"orbit":"protractor")} label="Three-point angle measurement"><DraftingCompass size={19}/>Angle</ToolButton>
-        <ToolButton active={tool==="eraser"} onClick={()=>chooseTool(tool==="eraser"?"orbit":"eraser")} label="Click to erase a line; drag to erase a portion"><Eraser size={19}/>Eraser</ToolButton>
-      </div>
       <div className="classroom-tool-section classroom-instrument-controls">
         <div className="classroom-section-title"><Ruler size={15}/> Teaching instruments</div>
         <div className="classroom-instrument-options">
@@ -919,7 +955,7 @@ export function ClassroomApp(){
       <div className="classroom-actions">
         <button onClick={undo} disabled={!edit&&!pending&&!pendingScreen&&!pendingVertices.length&&!pendingScreenVertices.length&&!history.length}><Undo2 size={15}/> Undo</button>
         <button onClick={clear} disabled={!pending&&!pendingScreen&&!pendingVertices.length&&!pendingScreenVertices.length&&marks.length===0&&strokes.length===0}><Eraser size={15}/> Clear</button>
-        <button onClick={()=>{setMarks([]);setStrokes([]);setHistory([]);setPending(null);setPendingScreen(null);setPendingVertices([]);setPendingScreenVertices([]);setEdit(null);setShowSphere(true);setShowNames(true);setRulerVisible(false);setProtractorVisible(false);setVisible(DEFAULT_VISIBLE);setSeasons(SEASONS.map(s=>s.longitude));setZenith(true);setNadir(true);setDirections(true);setView("outside");setCmd(old=>({number:old.number+1,dir:[0,0,1]}));setShape(true);chooseTool("orbit");}}><RotateCcw size={15}/> Reset</button>
+        <button onClick={()=>{setMarks([]);setStrokes([]);setHistory([]);setFuture([]);setCompassVisible(false);setPending(null);setPendingScreen(null);setPendingVertices([]);setPendingScreenVertices([]);setEdit(null);setShowSphere(true);setShowNames(true);setRulerVisible(false);setProtractorVisible(false);setVisible(DEFAULT_VISIBLE);setSeasons(SEASONS.map(s=>s.longitude));setZenith(true);setNadir(true);setDirections(true);setView("outside");setCmd(old=>({number:old.number+1,dir:[0,0,1]}));setShape(true);chooseTool("orbit");}}><RotateCcw size={15}/> Reset</button>
       </div>
     </aside>
     <div className="classroom-status classroom-glass" role="status"><span className="classroom-status-dot"/><span>{info}</span>

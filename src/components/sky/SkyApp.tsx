@@ -268,7 +268,19 @@ function Drawer() {
   const [imgErr, setImgErr] = useState(false);
   useEffect(() => setImgErr(false), [st.selected]);
   const sky = useMemo(() => computeSky(new Date(st.simTime), st.lat, st.lon), [st.simTime, st.lat, st.lon]);
-  if (!l) return null;
+  if (!l) return <aside className="sky-drawer sky-drawer-empty glass" aria-label="Astronomy information">
+    <div className="sky-drawer-welcome">
+      <div className="sky-drawer-orbit"><Orbit size={25}/></div>
+      <span className="sky-drawer-eyebrow">ASTRONOMY REFERENCE</span>
+      <h2>Explore the Celestial Sphere</h2>
+      <p>Select any circle from the left panel to view its Arabic name, definition, diagrams, and measurements.</p>
+      <div className="sky-drawer-tips">
+        <span><Crosshair size={15}/> Focus an astronomical circle</span>
+        <span><Eye size={15}/> Show and compare 3D rounds</span>
+        <span><MapPin size={15}/> Set the observer latitude</span>
+      </div>
+    </div>
+  </aside>;
   const g = buildLayer(l.id, sky);
   const primary = st.lang === "ml" ? l.ml : st.lang === "ar" ? l.ar : l.def;
   const tAA = localToAltAz(sky.T);

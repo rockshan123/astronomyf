@@ -659,3 +659,134 @@
   .sky-drawer{top:55px;bottom:76px}
   .sky-bottom{bottom:4px;min-height:45px;max-height:54px}
 }
+
+
+/* ===== Observatory layout v4 · one bounded viewport, reliable scroll panels =====
+   Overrides conflicting legacy breakpoint rules and avoids overflowing the transport. */
+.sky-root{
+  position:fixed!important;inset:0!important;
+  width:100vw!important;height:100vh!important;height:100dvh!important;
+  overflow:hidden!important;box-sizing:border-box;isolation:isolate;
+}
+.sky-root>.sky-top{z-index:50!important}
+.sky-root>.sky-side{
+  position:absolute!important;
+  top:78px!important;left:14px!important;right:auto!important;bottom:auto!important;
+  width:clamp(300px,22vw,370px)!important;
+  height:calc(100dvh - 174px)!important;
+  min-height:150px!important;max-height:none!important;
+  display:flex!important;flex-direction:column!important;
+  overflow:hidden!important;
+  box-sizing:border-box;
+  z-index:33!important;
+}
+.sky-root>.sky-side>.side-search,
+.sky-root>.sky-side>.presets{flex:0 0 auto!important}
+.sky-root>.sky-side>.side-scroll{
+  display:block!important;
+  flex:1 1 0%!important;
+  height:auto!important;
+  min-height:0!important;max-height:none!important;
+  padding:2px 8px 25px!important;
+  overflow-y:scroll!important;overflow-x:hidden!important;
+  scrollbar-width:thin!important;scrollbar-color:#648cb8 rgba(255,255,255,.13)!important;
+  overscroll-behavior:contain;
+  touch-action:pan-y;
+}
+.sky-root>.sky-drawer{
+  position:absolute!important;
+  top:78px!important;right:14px!important;left:auto!important;bottom:auto!important;
+  width:clamp(305px,22vw,370px)!important;
+  height:calc(100dvh - 174px)!important;
+  min-height:150px!important;max-height:none!important;
+  overflow-y:auto!important;overflow-x:hidden!important;
+  box-sizing:border-box;
+  overscroll-behavior:contain;
+  touch-action:pan-y;
+  z-index:34!important;
+}
+.sky-root>.sky-bottom{
+  position:absolute!important;
+  left:14px!important;right:14px!important;bottom:12px!important;
+  top:auto!important;
+  width:calc(100% - 28px)!important;
+  height:66px!important;min-height:0!important;max-height:66px!important;
+  box-sizing:border-box!important;
+  display:flex!important;flex-flow:row nowrap!important;
+  align-items:center!important;justify-content:flex-start!important;
+  overflow-x:auto!important;overflow-y:hidden!important;
+  scroll-padding:14px;scrollbar-width:thin;
+  z-index:45!important;
+}
+.sky-root>.sky-bottom .bgrp{flex:0 0 auto!important}
+.sky-root>.sky-bottom .bgrp.grow{flex:1 0 235px!important;min-width:230px!important}
+.sky-root>.sky-bottom button,.sky-root>.sky-bottom input,.sky-root>.sky-bottom select{
+  flex-shrink:0;
+}
+.sky-drawer-empty{justify-content:center}
+.sky-drawer-welcome{
+  display:flex;flex-direction:column;align-items:flex-start;
+  gap:15px;padding:14px 4px;
+  color:#1b3756;
+}
+.sky-drawer-orbit{
+  display:grid;place-items:center;width:57px;height:57px;border-radius:19px;
+  background:linear-gradient(140deg,#f3f9ff,#c9e4ff);
+  border:1px solid rgba(102,156,223,.27);
+  color:#2a69bd;box-shadow:0 8px 22px rgba(34,76,138,.12);
+}
+.sky-drawer-eyebrow{font-weight:800;font-size:10px;letter-spacing:.13em;color:#3068ad}
+.sky-drawer-welcome h2{font-size:20px;line-height:1.35;color:#173554;font-weight:750}
+.sky-drawer-welcome p{font-size:13px;line-height:1.65;color:#344e6b}
+.sky-drawer-tips{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+.sky-drawer-tips span{display:flex;align-items:center;gap:9px;color:#28466a;font-size:11px}
+.sky-drawer-tips svg{color:#3779c8}
+@media(max-width:1100px){
+  .sky-root>.sky-side{
+    top:65px!important;left:8px!important;
+    width:min(340px,calc(100vw - 16px))!important;
+    height:calc(100dvh - 153px - env(safe-area-inset-bottom))!important;
+  }
+  .sky-root>.sky-drawer{
+    top:65px!important;right:8px!important;
+    width:min(340px,calc(100vw - 16px))!important;
+    height:calc(100dvh - 153px - env(safe-area-inset-bottom))!important;
+  }
+  .sky-root>.sky-bottom{
+    left:8px!important;right:8px!important;width:calc(100% - 16px)!important;
+    bottom:calc(8px + env(safe-area-inset-bottom))!important;
+    height:62px!important;max-height:62px!important;
+  }
+  .sky-root>.sky-bottom .bgrp.grow{flex:0 0 270px!important}
+}
+@media(max-width:760px){
+  .sky-root>.sky-side{
+    top:61px!important;left:7px!important;
+    height:calc(100dvh - 147px - env(safe-area-inset-bottom))!important;
+    min-height:110px!important;
+  }
+  .sky-root>.sky-drawer{
+    top:auto!important;left:7px!important;right:7px!important;
+    bottom:calc(79px + env(safe-area-inset-bottom))!important;
+    width:auto!important;
+    height:min(50dvh,490px)!important;
+    min-height:0!important;
+  }
+  .sky-root>.sky-drawer-empty{display:none!important}
+  .sky-root>.sky-bottom{
+    bottom:calc(7px + env(safe-area-inset-bottom))!important;
+    left:7px!important;right:7px!important;width:calc(100% - 14px)!important;
+    height:60px!important;max-height:60px!important;
+  }
+}
+@media(max-height:490px) and (orientation:landscape){
+  .sky-root>.sky-side{
+    top:56px!important;height:calc(100dvh - 118px)!important;min-height:75px!important;
+  }
+  .sky-root>.sky-drawer{
+    top:56px!important;bottom:auto!important;height:calc(100dvh - 118px)!important;
+  }
+  .sky-root>.sky-bottom{
+    bottom:4px!important;height:47px!important;max-height:47px!important;
+  }
+}
