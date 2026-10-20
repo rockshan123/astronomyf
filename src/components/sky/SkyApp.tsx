@@ -92,7 +92,6 @@ function TopBar({ onHelp, onPresent }: { onHelp: () => void; onPresent: () => vo
     <header className="sky-top glass">
       <button className="sky-icon" aria-label="Toggle layers" onClick={() => set({ sidebarOpen: !sidebarOpen })}><PanelLeft size={18} /></button>
       <div className="brand">
-        <span className="brand-ar" dir="rtl">تَشْرِيحُ الْأَفْلَاك</span>
         <span className="brand-en">TASHRIHUL AFLAK 3D</span>
       </div>
       <Link to="/classroom" className="sky-btn classroom-nav-link"><PenLine size={14} /> Classroom</Link>

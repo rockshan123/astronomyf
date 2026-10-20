@@ -230,7 +230,7 @@ function CircleName({layer,lines,index,view}:{
   });
   return <group ref={group}>
     <Html center zIndexRange={[3,0]} style={{pointerEvents:"none"}}>
-      <div ref={element} className="classroom-circle-name"
+      <div ref={element} className={"classroom-circle-name"+(layer.ar.length>32?" is-long":"")}
         style={{color:layer.color}} title={layer.en}>
         <span lang="ar" dir="rtl">{layer.ar}</span>
       </div>
@@ -346,7 +346,7 @@ function ToolButton({active,onClick,children,label}:{active:boolean;onClick:()=>
 }
 
 export function ClassroomApp(){
-  const [mobilePanel,setMobilePanel]=useState<"layers"|"tools">("tools");
+  const [mobilePanel,setMobilePanel]=useState<"layers"|"tools"|"none">("none");
   const [visible,setVisible]=useState<string[]>(DEFAULT_VISIBLE);
   const [zenith,setZenith]=useState(true);
   const [nadir,setNadir]=useState(true);
@@ -755,10 +755,10 @@ export function ClassroomApp(){
     <header className="classroom-top classroom-glass">
       <Link to="/" className="classroom-back" aria-label="Back to Observatory"><ArrowLeft size={18}/></Link>
       <div className="classroom-title"><span className="classroom-kicker">TASHRIHUL AFLAK · TEACHING STUDIO</span>
-        <span className="classroom-heading">Celestial Whiteboard <b dir="rtl">تَشْرِيحُ الْأَفْلَاكِ</b></span></div>
+        <span className="classroom-heading">Celestial Whiteboard</span></div>
       <div className="classroom-mobile-tabs">
-        <button className={mobilePanel==="layers"?"selected":""} onClick={()=>setMobilePanel("layers")}>Circles</button>
-        <button className={mobilePanel==="tools"?"selected":""} onClick={()=>setMobilePanel("tools")}>Tools</button>
+        <button className={mobilePanel==="layers"?"selected":""} onClick={()=>setMobilePanel(current=>current==="layers"?"none":"layers")} aria-expanded={mobilePanel==="layers"}>Circles</button>
+        <button className={mobilePanel==="tools"?"selected":""} onClick={()=>setMobilePanel(current=>current==="tools"?"none":"tools")} aria-expanded={mobilePanel==="tools"}>Tools</button>
       </div>
       <button className="classroom-fullscreen" type="button" title="Fullscreen" onClick={()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}><Maximize2 size={17}/></button>
     </header>

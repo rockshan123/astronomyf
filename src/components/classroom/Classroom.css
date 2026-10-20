@@ -445,3 +445,163 @@
   .classroom-instrument{zoom:1!important}
   .classroom-v2 .classroom-instrument-ruler{transform-origin:16px 52px}
 }
+
+/* Oct 2026 · phone/tablet viewport layout and truly horizontal Arabic labels. */
+.classroom-circle-name,
+.classroom-circle-name span[lang="ar"]{
+  display:inline-flex!important;
+  flex-direction:row;
+  align-items:center;
+  justify-content:center;
+  max-width:none!important;
+  min-width:max-content;
+  width:max-content;
+  white-space:nowrap!important;
+  word-break:keep-all!important;
+  overflow-wrap:normal!important;
+  line-break:auto;
+  writing-mode:horizontal-tb!important;
+  text-orientation:mixed;
+}
+.classroom-circle-name span[lang="ar"]{
+  font-size:clamp(12px,1.12vw,17px);
+  line-height:1.65;
+  unicode-bidi:isolate;
+}
+.classroom-circle-name.is-long span[lang="ar"]{font-size:clamp(10px,.86vw,14px)}
+.classroom-circle-label strong[dir="rtl"]{
+  white-space:nowrap!important;
+  overflow-wrap:normal!important;
+  word-break:normal!important;
+  display:block;
+  max-width:100%;
+  overflow-x:auto;
+  scrollbar-width:thin;
+  text-align:right;
+  direction:rtl;
+  line-height:1.7;
+}
+.classroom-root{width:100%;height:100%;height:100dvh}
+.classroom-root .classroom-stage{width:100%;height:100%}
+.classroom-v2 .classroom-ink-layer{overflow:hidden}
+.classroom-v2 .classroom-fullscreen,
+.classroom-v2 .classroom-back{min-width:38px;min-height:38px}
+@media(max-width:1100px){
+  /* Side panels become independent bottom sheets, rather than shrinking the sphere. */
+  .classroom-root .classroom-top{
+    top:max(8px,env(safe-area-inset-top));
+    left:max(9px,env(safe-area-inset-left));
+    right:max(9px,env(safe-area-inset-right));
+    height:60px;
+    min-width:0;
+    padding:7px 10px;
+    gap:8px;
+    border-radius:18px;
+  }
+  .classroom-root .classroom-mobile-tabs{
+    display:flex;
+    flex:0 0 auto;
+    align-items:center;
+    gap:3px;
+    padding:4px;
+    border-radius:12px;
+    background:#eaf1fc;
+  }
+  .classroom-root .classroom-mobile-tabs button{
+    min-height:33px;
+    border-radius:9px;
+    padding:6px 10px;
+    font-size:12px;
+    color:#647d9b;
+    white-space:nowrap;
+  }
+  .classroom-root .classroom-mobile-tabs button.selected{
+    background:white;color:#2169b2;font-weight:700;
+    box-shadow:0 2px 8px rgba(32,69,112,.11);
+  }
+  .classroom-root .classroom-title{min-width:0;flex:1}
+  .classroom-root .classroom-kicker{font-size:8px;letter-spacing:.05em}
+  .classroom-root .classroom-heading{display:block;font-size:clamp(12px,1.7vw,17px)}
+  .classroom-v2 .classroom-layers,.classroom-v2 .classroom-tools{
+    display:none!important;
+    position:absolute;
+    z-index:11;
+    left:auto;
+    top:auto!important;
+    bottom:max(12px,env(safe-area-inset-bottom));
+    right:max(10px,env(safe-area-inset-right));
+    width:min(385px,calc(100vw - 20px));
+    max-height:min(65dvh,640px);
+    height:auto;
+    padding:15px;
+    border-radius:20px;
+    overflow:hidden;
+  }
+  .classroom-root[data-panel="layers"] .classroom-layers{display:flex!important}
+  .classroom-root[data-panel="tools"] .classroom-tools{display:flex!important;overflow-y:auto}
+  .classroom-root[data-panel="none"] .classroom-layers,
+  .classroom-root[data-panel="none"] .classroom-tools{display:none!important}
+  .classroom-root[data-panel="layers"] .classroom-status,
+  .classroom-root[data-panel="tools"] .classroom-status{display:none}
+  .classroom-v2 .classroom-toolstrip{
+    grid-template-columns:repeat(7,minmax(0,1fr));
+    gap:3px;
+  }
+  .classroom-v2 .classroom-tool{font-size:9px;min-height:52px}
+  .classroom-v2 .classroom-circle-name span[lang="ar"]{font-size:clamp(11px,1.7vw,15px)}
+}
+@media(max-width:620px){
+  .classroom-root .classroom-top{
+    height:54px;gap:5px;padding:6px;
+  }
+  .classroom-root .classroom-title{flex:1;min-width:0}
+  .classroom-root .classroom-heading{font-size:12px;letter-spacing:-.02em}
+  .classroom-root .classroom-kicker{font-size:7px;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .classroom-root .classroom-mobile-tabs{gap:1px;padding:3px}
+  .classroom-root .classroom-mobile-tabs button{
+    padding:6px 7px;font-size:10px;min-height:33px;
+  }
+  .classroom-root .classroom-back,.classroom-root .classroom-fullscreen{
+    min-width:33px;width:33px;min-height:33px;height:33px;border-radius:10px;
+  }
+  .classroom-v2 .classroom-layers,.classroom-v2 .classroom-tools{
+    left:max(7px,env(safe-area-inset-left));
+    right:max(7px,env(safe-area-inset-right));
+    width:auto;
+    bottom:max(7px,env(safe-area-inset-bottom));
+    max-height:min(56dvh,560px);
+    padding:11px;
+    border-radius:17px;
+  }
+  .classroom-v2 .classroom-toolstrip{
+    grid-template-columns:repeat(7,minmax(0,1fr));
+    gap:1px;padding:3px;
+  }
+  .classroom-v2 .classroom-tool{min-width:0;min-height:49px;font-size:8px;gap:2px}
+  .classroom-v2 .classroom-tool svg{height:16px;width:16px}
+  .classroom-root .classroom-status{
+    bottom:calc(10px + env(safe-area-inset-bottom));
+    padding:8px 11px;
+    width:max-content;
+    min-width:0;
+    max-width:calc(100vw - 16px);
+    font-size:9px;
+    border-radius:14px;
+  }
+  .classroom-circle-name span[lang="ar"]{font-size:12px!important}
+  .classroom-circle-name.is-long span[lang="ar"]{font-size:10px!important}
+  .classroom-v2 .classroom-circle-list{min-height:0}
+  .classroom-v2 .classroom-instrument-options{grid-template-columns:1fr 1fr}
+}
+@media(max-width:365px){
+  .classroom-root .classroom-kicker{display:none}
+  .classroom-root .classroom-heading{font-size:11px}
+  .classroom-root .classroom-mobile-tabs button{font-size:9px;padding:6px 4px}
+}
+@media(max-height:480px) and (orientation:landscape){
+  .classroom-root .classroom-top{height:45px;top:4px}
+  .classroom-v2 .classroom-layers,.classroom-v2 .classroom-tools{
+    max-height:calc(100dvh - 55px);bottom:5px;right:5px;
+  }
+  .classroom-root .classroom-status{bottom:5px}
+}
