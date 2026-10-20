@@ -822,7 +822,7 @@ export function ClassroomApp(){
       {protractorVisible&&<ClassroomInstrument type="protractor" stageSize={stageSize} onCommitAngle={addInstrumentAngle} onClose={()=>setProtractorVisible(false)}/>} 
       {compassVisible&&<ClassroomCompass stageSize={stageSize} onDraw={addCompassArc} onClose={()=>setCompassVisible(false)}/>}
     </section>
-    <nav className="classroom-floating-toolbar" role="toolbar" aria-label="Whiteboard drawing toolbar">
+    <nav className="classroom-floating-toolbar classroom-glass" role="toolbar" aria-label="Whiteboard drawing toolbar">
       <ToolButton active={tool==="pen"} onClick={()=>chooseTool(tool==="pen"?"orbit":"pen")} label="Pen"><PenLine size={22}/>Pen</ToolButton>
       <ToolButton active={tool==="eraser"} onClick={()=>chooseTool(tool==="eraser"?"orbit":"eraser")} label="Eraser"><Eraser size={22}/>Eraser</ToolButton>
       <ToolButton active={tool==="orbit"} onClick={()=>chooseTool("orbit")} label="Select and rotate sphere"><MousePointer2 size={22}/>Select</ToolButton>
@@ -846,6 +846,11 @@ export function ClassroomApp(){
         onClick={()=>setCompassVisible(v=>!v)}><Compass size={22}/><small>Compass</small></button>
       <button type="button" className="classroom-toolbar-icon" aria-label="Toggle inside or outside view"
         onClick={()=>{setView(v=>v==="inside"?"outside":"inside");setPending(null);}}><Eye size={22}/><small>{view==="inside"?"Inside":"Outside"}</small></button>
+      {(pending||pendingScreen||pendingVertices.length>0||pendingScreenVertices.length>0)&&
+        <button type="button" className="classroom-toolbar-icon classroom-toolbar-cancel" aria-label="Cancel current drawing"
+          onClick={()=>{setPending(null);setPendingScreen(null);setPendingVertices([]);setPendingScreenVertices([]);}}>
+          <X size={22}/><small>Cancel</small>
+        </button>}
     </nav>
     <aside className="classroom-layers classroom-glass" aria-label="Great circle controls">
       <div className="classroom-panel-head"><div><span className="classroom-overline">GEOMETRY</span><h2 dir="rtl">الدَّوَائِرُ الْعِظَامُ</h2><p>10 Great Circles</p></div>
@@ -958,7 +963,6 @@ export function ClassroomApp(){
         <button onClick={()=>{setMarks([]);setStrokes([]);setHistory([]);setFuture([]);setCompassVisible(false);setPending(null);setPendingScreen(null);setPendingVertices([]);setPendingScreenVertices([]);setEdit(null);setShowSphere(true);setShowNames(true);setRulerVisible(false);setProtractorVisible(false);setVisible(DEFAULT_VISIBLE);setSeasons(SEASONS.map(s=>s.longitude));setZenith(true);setNadir(true);setDirections(true);setView("outside");setCmd(old=>({number:old.number+1,dir:[0,0,1]}));setShape(true);chooseTool("orbit");}}><RotateCcw size={15}/> Reset</button>
       </div>
     </aside>
-    <div className="classroom-status classroom-glass" role="status"><span className="classroom-status-dot"/><span>{info}</span>
-      {pending&&<button onClick={()=>setPending(null)}><X size={14}/> Cancel</button>}</div>
+    <div className="classroom-screenreader-status" role="status" aria-live="polite">{info}</div>
   </main>;
 }

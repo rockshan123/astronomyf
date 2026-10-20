@@ -1244,3 +1244,148 @@
 }
 .classroom-v2 .classroom-ruler-ticks{bottom:3px!important;top:auto!important;height:28px!important}
 .classroom-v2 .classroom-ruler-face{height:72px!important;min-height:72px}
+
+
+/* Single Neo-Tactile drawing dock: use the former guidance-pill appearance
+   for the toolbar itself; keep guidance accessible without displaying another card. */
+.classroom-root.classroom-v2 .classroom-floating-toolbar.classroom-glass{
+  position:absolute!important;
+  left:50%!important;
+  right:auto!important;
+  bottom:calc(12px + env(safe-area-inset-bottom))!important;
+  transform:translateX(-50%)!important;
+  z-index:28!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  flex-wrap:nowrap!important;
+  gap:3px!important;
+  width:max-content!important;
+  max-width:calc(100vw - 22px)!important;
+  min-height:0!important;
+  height:76px!important;
+  box-sizing:border-box!important;
+  padding:7px 10px!important;
+  border:1px solid rgba(249,253,255,.82)!important;
+  border-radius:23px!important;
+  background:linear-gradient(122deg,rgba(248,252,255,.96),rgba(206,221,239,.91) 53%,rgba(165,194,226,.88))!important;
+  box-shadow:0 14px 37px rgba(0,8,27,.36),0 2px 10px rgba(13,51,96,.14),inset 0 1.5px rgba(255,255,255,.95)!important;
+  -webkit-backdrop-filter:blur(24px) saturate(160%)!important;
+  backdrop-filter:blur(24px) saturate(160%)!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(60,101,151,.36) transparent;
+}
+.classroom-root.classroom-v2 .classroom-floating-toolbar.classroom-glass::before{
+  opacity:.28;
+  border-radius:inherit;
+  pointer-events:none;
+}
+.classroom-root.classroom-v2 .classroom-floating-toolbar .classroom-tool,
+.classroom-root.classroom-v2 .classroom-floating-toolbar .classroom-toolbar-icon{
+  width:54px!important;
+  min-width:50px!important;
+  height:59px!important;
+  min-height:59px!important;
+  flex:0 0 auto!important;
+  padding:5px 3px!important;
+  background:transparent!important;
+  color:#294966!important;
+  text-shadow:none!important;
+  border-radius:15px!important;
+  box-shadow:none!important;
+  font-size:10px!important;
+  font-weight:750!important;
+}
+.classroom-root.classroom-v2 .classroom-floating-toolbar .classroom-toolbar-icon small{
+  color:inherit;
+  line-height:1.25!important;
+  font-size:10px!important;
+  font-weight:750!important;
+}
+.classroom-root.classroom-v2 .classroom-floating-toolbar svg{
+  filter:none!important;
+  stroke-width:2.05;
+}
+.classroom-root.classroom-v2 .classroom-floating-toolbar .classroom-tool.is-active,
+.classroom-root.classroom-v2 .classroom-floating-toolbar .classroom-toolbar-icon.is-active{
+  color:#fff!important;
+  background:linear-gradient(145deg,#65b6ff,#2886ff 50%,#1666e8)!important;
+  box-shadow:0 5px 14px rgba(29,110,225,.30),inset 0 1px rgba(255,255,255,.38)!important;
+}
+.classroom-root.classroom-v2 .classroom-floating-toolbar .classroom-tool:hover:not(.is-active),
+.classroom-root.classroom-v2 .classroom-floating-toolbar .classroom-toolbar-icon:hover:not(.is-active){
+  color:#1b63ae!important;
+  background:rgba(255,255,255,.46)!important;
+  box-shadow:inset 0 0 0 1px rgba(92,151,223,.16)!important;
+  transform:translateY(-1px);
+}
+.classroom-root.classroom-v2 .classroom-floating-toolbar button:disabled{
+  opacity:.37!important;
+}
+.classroom-root.classroom-v2 .classroom-floating-toolbar .classroom-toolbar-cancel{
+  color:#a33a52!important;
+}
+.classroom-root.classroom-v2 .classroom-floating-toolbar button:focus-visible{
+  outline:2px solid #247cec;
+  outline-offset:0;
+}
+.classroom-v2 .classroom-screenreader-status{
+  position:absolute!important;
+  width:1px!important;
+  height:1px!important;
+  padding:0!important;
+  margin:-1px!important;
+  overflow:hidden!important;
+  clip:rect(0,0,0,0)!important;
+  white-space:nowrap!important;
+  border:0!important;
+}
+.classroom-v2 .classroom-layers{
+  bottom:calc(105px + env(safe-area-inset-bottom))!important;
+}
+.classroom-v2 .classroom-tools{
+  bottom:calc(105px + env(safe-area-inset-bottom))!important;
+}
+@media(max-width:1100px){
+  .classroom-root.classroom-v2 .classroom-floating-toolbar.classroom-glass{
+    bottom:calc(7px + env(safe-area-inset-bottom))!important;
+    height:70px!important;
+    padding:5px 7px!important;
+    border-radius:19px!important;
+    max-width:calc(100vw - 14px)!important;
+  }
+  .classroom-root.classroom-v2 .classroom-floating-toolbar .classroom-tool,
+  .classroom-root.classroom-v2 .classroom-floating-toolbar .classroom-toolbar-icon{
+    min-width:48px!important;width:48px!important;
+    min-height:54px!important;height:54px!important;
+    font-size:9px!important;
+  }
+  .classroom-root.classroom-v2 .classroom-floating-toolbar .classroom-toolbar-icon small{
+    font-size:9px!important;
+  }
+  .classroom-v2 .classroom-layers,.classroom-v2 .classroom-tools{
+    bottom:calc(88px + env(safe-area-inset-bottom))!important;
+  }
+}
+@media(max-width:620px){
+  .classroom-root.classroom-v2 .classroom-floating-toolbar.classroom-glass{
+    left:7px!important;
+    right:7px!important;
+    transform:none!important;
+    width:calc(100% - 14px)!important;
+    max-width:none!important;
+    height:66px!important;
+    justify-content:flex-start!important;
+    gap:2px!important;
+  }
+  .classroom-root.classroom-v2 .classroom-floating-toolbar .classroom-tool,
+  .classroom-root.classroom-v2 .classroom-floating-toolbar .classroom-toolbar-icon{
+    min-width:47px!important;width:47px!important;
+    min-height:52px!important;height:52px!important;
+  }
+  .classroom-v2 .classroom-layers,.classroom-v2 .classroom-tools{
+    bottom:calc(82px + env(safe-area-inset-bottom))!important;
+  }
+}
